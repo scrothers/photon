@@ -1,12 +1,13 @@
 Summary:	Linux-native asynchronous I/O access library
 Name:		libaio
 Version:	0.3.110
-Release: 	1
+Release: 	2%{?dist}
 License:	LGPLv2+
 Group:		System Environment/Libraries
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	https://fedorahosted.org/releases/l/i/libaio/libaio-0.3.110.tar.gz
+%define sha1 libaio=f8f6ed15f22e528f6f415939b07854539e3360e4
 Patch0:		libaio-install-to-destdir-slash-usr.patch
 
 %description
@@ -48,6 +49,9 @@ install -D -m 755 src/libaio.so.1.0.0 %{buildroot}/%{_libdir}/libaio.so.1.0.0
 cd ..
 make destdir=%{buildroot} prefix=%{_prefix} libdir=/lib usrlibdir=%{_libdir} includedir=%{_includedir} install
 
+%check
+make %{?_smp_mflags} -k check
+
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
@@ -62,6 +66,8 @@ make destdir=%{buildroot} prefix=%{_prefix} libdir=/lib usrlibdir=%{_libdir} inc
 %attr(0755,root,root) %{_libdir}/libaio.a
 
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.3.110-2
+-	GA - Bump release of all rpms
 * Tue Mar 3 2015 Divya Thaluru <dthaluru@vmware.com> 0.3.110-1
 - Initial version
 

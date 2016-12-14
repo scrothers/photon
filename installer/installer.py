@@ -11,21 +11,23 @@ import crypt
 import re
 import random
 import string
-import time
 import shutil
 import fnmatch
 import signal
 import sys
+import glob
+import modules.commons
 from jsonwrapper import JsonWrapper
 from progressbar import ProgressBar
 from window import Window
 from actionresult import ActionResult
+from __builtin__ import isinstance
 
 class Installer(object):
-    def __init__(self, install_config, maxy = 0, maxx = 0, iso_installer = False, local_install = False, tools_path = "../stage", rpm_path = "../stage/RPMS", log_path = "../stage/LOGS"):
+    def __init__(self, install_config, maxy = 0, maxx = 0, iso_installer = False, rpm_path = "../stage/RPMS", log_path = "../stage/LOGS", ks_config = None):
         self.install_config = install_config
+        self.ks_config = ks_config
         self.iso_installer = iso_installer
-        self.tools_path = tools_path
         self.rpm_path = rpm_path
         self.log_path = log_path
         self.mount_command = "./mk-mount-disk.sh"
@@ -35,31 +37,14 @@ class Installer(object):
         self.chroot_command = "./mk-run-chroot.sh"
         self.setup_grub_command = "./mk-setup-grub.sh"
         self.unmount_disk_command = "./mk-unmount-disk.sh"
-        self.local_install = local_install
-        print local_install
-        if local_install:
-            self.scripts_working_directory = "./"
-        elif self.iso_installer:
-            self.scripts_working_directory = "/usr/src/photon"
-        else:
-            self.scripts_working_directory = "./"
 
-        if self.iso_installer:
-            self.photon_root = "/mnt/photon-root"
-        elif 'working_directory' in self.install_config:
-            self.photon_root = self.install_config['working_directory']
+        if 'working_directory' in self.install_config:
+            self.working_directory = self.install_config['working_directory']
         else:
-            self.photon_root = "/mnt/photon-root"
+            self.working_directory = "/mnt/photon-root"
+        self.photon_root = self.working_directory + "/photon-chroot";
 
-        self.photon_directory = self.photon_root + "/usr/src/photon"
         self.restart_command = "shutdown"
-        self.hostname_file = self.photon_root + "/etc/hostname"
-        self.hosts_file = self.photon_root + "/etc/hosts"
-        self.passwd_filename = self.photon_root + "/etc/passwd"
-        self.shadow_filename = self.photon_root + "/etc/shadow"
-        self.authorized_keys_dir = self.photon_root + "/root/.ssh"
-        self.authorized_keys_filename = self.authorized_keys_dir + "/authorized_keys"
-        self.sshd_config_filename = self.photon_root + "/etc/ssh/sshd_config"
 
         if self.iso_installer:
             self.output = open(os.devnull, 'w')
@@ -77,7 +62,7 @@ class Installer(object):
             self.progress_width = self.width - self.progress_padding
             self.starty = (self.maxy - self.height) / 2
             self.startx = (self.maxx - self.width) / 2
-            self.window = Window(self.height, self.width, self.maxy, self.maxx, 'Installing Photon', False)
+            self.window = Window(self.height, self.width, self.maxy, self.maxx, 'Installing Photon', False, items =[])
             self.progress_bar = ProgressBar(self.starty + 3, self.startx + self.progress_padding / 2, self.progress_width)
 
         signal.signal(signal.SIGINT, self.exit_gracefully)
@@ -86,232 +71,326 @@ class Installer(object):
     def exit_gracefully(self, signal, frame):
         if self.iso_installer:
             self.progress_bar.hide()
-            self.window.addstr(0, 0, 'Opps, Installer got inturrupted.\n\nPress any key to get to the bash...')
+            self.window.addstr(0, 0, 'Opps, Installer got interrupted.\n\nPress any key to get to the bash...')
             self.window.content_window().getch()
-        
+
+        modules.commons.dump(modules.commons.LOG_FILE_NAME)
         sys.exit(1)
 
     def install(self, params):
         try:
             return self.unsafe_install(params)
-        except:
+        except Exception as inst:
             if self.iso_installer:
+                modules.commons.log(modules.commons.LOG_ERROR, repr(inst))
                 self.exit_gracefully(None, None)
             else:
                 raise
 
     def unsafe_install(self, params):
 
-        self.prepare_files_rpms_list()
-
         if self.iso_installer:
             self.window.show_window()
-
-            self.progress_bar.initialize(self.total_size, 'Initializing installation...')
+            self.progress_bar.initialize('Initializing installation...')
             self.progress_bar.show()
+            #self.rpm_path = "https://dl.bintray.com/vmware/photon_release_1.0_TP2_x86_64"
+            if self.rpm_path.startswith("https://") or self.rpm_path.startswith("http://"):
+                cmdoption = 's/baseurl.*/baseurl={}/g'.format(self.rpm_path.replace('/','\/'))
+                process = subprocess.Popen(['sed', '-i', cmdoption,'/etc/yum.repos.d/photon-iso.repo']) 
+                retval = process.wait()
+                if retval != 0:
+                    modules.commons.log(modules.commons.LOG_INFO, "Failed to reset repo")
+                    self.exit_gracefully(None, None)
 
-        self.pre_initialize_filesystem()
-
-        #install packages
-        for rpm in self.rpms_tobeinstalled:
-            # We already installed the filesystem in the preparation
-            if rpm['package'] == 'filesystem':
-                continue
-            if self.iso_installer:
-                self.progress_bar.update_message('Installing {0}...'.format(rpm['package']))
-            return_value = self.install_package(rpm['package'])
-            if return_value != 0:
+            cmdoption = 's/cachedir=\/var/cachedir={}/g'.format(self.photon_root.replace('/','\/'))
+            process = subprocess.Popen(['sed', '-i', cmdoption,'/etc/tdnf/tdnf.conf']) 
+            retval = process.wait()
+            if retval != 0:
+                modules.commons.log(modules.commons.LOG_INFO, "Failed to reset tdnf cachedir")
                 self.exit_gracefully(None, None)
-            #time.sleep(0.05)
-            if self.iso_installer:
-                self.progress_bar.increment(rpm['size'] * self.install_factor)
+        self.execute_modules(modules.commons.PRE_INSTALL)
+
+        self.initialize_system()
+
+        if self.iso_installer:
+            self.get_size_of_packages()
+            selected_packages = self.install_config['packages']
+            for package in selected_packages:
+                self.progress_bar.update_message('Installing {0}...'.format(package))
+                process = subprocess.Popen(['tdnf', 'install', package, '--installroot', self.photon_root, '--nogpgcheck', '--assumeyes'], stdout=self.output, stderr=subprocess.STDOUT)
+                retval = process.wait()
+                # 0 : succeed; 137 : package already installed; 65 : package not found in repo.
+                if retval != 0 and retval != 137:
+                    modules.commons.log(modules.commons.LOG_ERROR, "Failed install: {} with error code {}".format(package, retval))
+                    self.exit_gracefully(None, None)
+                self.progress_bar.increment(self.size_of_packages[package])
+        else:
+        #install packages
+            for rpm in self.rpms_tobeinstalled:
+                # We already installed the filesystem in the preparation
+                if rpm['package'] == 'filesystem':
+                    continue
+                return_value = self.install_package(rpm['filename'])
+                if return_value != 0:
+                    self.exit_gracefully(None, None)
+
 
         if self.iso_installer:
             self.progress_bar.show_loading('Finalizing installation')
-        #finalize system
-        self.finalize_system()
-        #time.sleep(5)
 
-        if not self.install_config['iso_system'] and not self.local_install:
+        shutil.copy("/etc/resolv.conf", self.photon_root + '/etc/.')
+        self.finalize_system()
+
+        if not self.install_config['iso_system']:
+            # Execute post installation modules
+            self.execute_modules(modules.commons.POST_INSTALL)
+
             # install grub
-            process = subprocess.Popen([self.setup_grub_command, '-w', self.photon_root, self.install_config['disk']['disk'], self.install_config['disk']['root']], stdout=self.output,  stderr=self.output)
+            try:
+                if self.install_config['boot'] == 'bios':
+                    process = subprocess.Popen([self.setup_grub_command, '-w', self.photon_root, "bios", self.install_config['disk']['disk'], self.install_config['disk']['root'], self.install_config['disk']['boot'], self.install_config['disk']['bootdirectory']], stdout=self.output)
+                elif self.install_config['boot'] == 'efi':
+                    process = subprocess.Popen([self.setup_grub_command, '-w', self.photon_root, "efi", self.install_config['disk']['disk'], self.install_config['disk']['root'], self.install_config['disk']['boot'], self.install_config['disk']['bootdirectory']], stdout=self.output)
+            except:
+                #install bios if variable is not set.
+                process = subprocess.Popen([self.setup_grub_command, '-w', self.photon_root, "bios", self.install_config['disk']['disk'], self.install_config['disk']['root'], self.install_config['disk']['boot'], self.install_config['disk']['bootdirectory']], stdout=self.output)
+
             retval = process.wait()
 
-            #update root password
-            self.update_root_password()
+            self.update_fstab()
 
-            #update hostname
-            self.update_hostname()
+        if os.path.exists(self.photon_root + '/etc/resolv.conf'):
+            os.remove(self.photon_root + '/etc/resolv.conf')
 
-            #update openssh config
-            self.update_openssh_config()
-
-        process = subprocess.Popen([self.unmount_disk_command, '-w', self.photon_root], stdout=self.output,  stderr=self.output)
+        command = [self.unmount_disk_command, '-w', self.photon_root]
+        if not self.install_config['iso_system']:
+            command.extend(self.generate_partitions_param(reverse = True))
+        process = subprocess.Popen(command, stdout=self.output)
         retval = process.wait()
 
         if self.iso_installer:
             self.progress_bar.hide()
             self.window.addstr(0, 0, 'Congratulations, Photon has been installed in {0} secs.\n\nPress any key to continue to boot...'.format(self.progress_bar.time_elapsed))
-            self.window.content_window().getch()
+            if self.ks_config == None:
+                self.window.content_window().getch()
 
         return ActionResult(True, None)
-
-    def prepare_files_rpms_list(self):
-        self.total_size = 0
-        self.install_factor = 3
-
-        tools_list = (JsonWrapper("tools_list.json")).read()
-        tools = tools_list['base_tools']
-        # Add the additional iso tools.
-        if self.install_config['iso_system']:
-            tools = tools + tools_list['iso_tools']
-
-        self.files_tobecopied = []
-        for item in tools:
-            src = os.path.join(self.scripts_working_directory, item)
-            if os.path.isfile(src):
-                if item != '.hidden':
-                    size = os.path.getsize(src)
-                    self.total_size += size
-                    self.files_tobecopied.append({'name': item, 'path': src, 'size': size})
-                continue
-            for root, dirs, files in os.walk(src):
-                for name in files:
-                    file = os.path.join(root, name)
-                    size = os.path.getsize(file)
-                    self.total_size += size
-                    relative = None
-                    if name.endswith(".rpm"):
-                        relative = os.path.relpath(file, self.rpm_path)
-                        relative = os.path.join("RPMS", relative)
-                    self.files_tobecopied.append({'name': name, 'path': file, 'relative_path': relative, 'size': size})
-
-        # prepare the RPMs
-        # TODO: mbassiouny, do not copy the rpms twice
+        
+    def copy_rpms(self):
+        # prepare the RPMs list
         rpms = []
-        for root, dirs, files in os.walk(os.path.join(self.scripts_working_directory, self.rpm_path)):
+        for root, dirs, files in os.walk(self.rpm_path):
             for name in files:
                 file = os.path.join(root, name)
                 size = os.path.getsize(file)
-                relative = os.path.relpath(file, self.rpm_path)
-                relative = os.path.join("RPMS", relative)
-                rpms.append({'name': name, 'path': file, 'relative_path': relative, 'size': size})
+                rpms.append({'filename': name, 'path': file, 'size': size})
 
         self.rpms_tobeinstalled = []
-        # prepare the RPMs list
         selected_packages = self.install_config['packages']
         for package in selected_packages:
             pattern = package + '-[0-9]*.rpm'
+            if (package == 'glibc'):
+                pattern2 = pattern
+            else:
+                pattern2 = package + '-[a-z][0-9]*.rpm'
             for rpm in rpms:
-                if fnmatch.fnmatch(rpm['name'], pattern):
+                if fnmatch.fnmatch(rpm['filename'], pattern) or fnmatch.fnmatch(rpm['filename'], pattern2):
                     rpm['package'] = package
                     self.rpms_tobeinstalled.append(rpm)
-                    self.total_size += rpm['size'] + rpm['size'] * self.install_factor
                     break
-
-    def copy_file(self, file):
-        if self.iso_installer:
-            message = 'Copying {0}...'.format(file['name'])
-            self.progress_bar.update_message(message)
-
-        if 'relative_path' in file and file['relative_path'] != None:
-            relative = file['relative_path']
-        else:
-            relative = os.path.relpath(file['path'], self.scripts_working_directory)
-
-        dst = os.path.join(self.photon_directory, relative)
-        if not os.path.exists(os.path.dirname(dst)):
-            os.makedirs(os.path.dirname(dst))
-        shutil.copy(file['path'], dst)
+        # Copy the rpms
+        for rpm in self.rpms_tobeinstalled:
+            shutil.copy(rpm['path'], self.photon_root + '/RPMS/')
 
     def copy_files(self):
-        for file in self.files_tobecopied:
-            self.copy_file(file)
-            #time.sleep(0.05)
-            if self.iso_installer:
-                self.progress_bar.increment(file['size'])
-
-        for rpm in self.rpms_tobeinstalled:
-            self.copy_file(rpm)
-            #time.sleep(0.05)
-            if self.iso_installer:
-                self.progress_bar.increment(rpm['size'])
-
-    def pre_initialize_filesystem(self):
-        #Setup the disk
-        if (not self.install_config['iso_system']) and (not self.local_install):
-            process = subprocess.Popen([self.mount_command, '-w', self.photon_root, self.install_config['disk']['root']], stdout=self.output,  stderr=self.output)
-            retval = process.wait()
-        #Setup the filesystem basics
-        self.copy_files()
-        process = subprocess.Popen([self.prepare_command, '-w', self.photon_root, self.tools_path], stdout=self.output,  stderr=self.output)
+        # Make the photon_root directory if not exits
+        process = subprocess.Popen(['mkdir', '-p', self.photon_root], stdout=self.output)
         retval = process.wait()
+
+        # Copy the installer files
+        process = subprocess.Popen(['cp', '-r', "../installer", self.photon_root], stdout=self.output)
+        retval = process.wait()
+
+        # Create the rpms directory
+        process = subprocess.Popen(['mkdir', '-p', self.photon_root + '/RPMS'], stdout=self.output)
+        retval = process.wait()
+        self.copy_rpms()
+
+    def bind_installer(self):
+        # Make the photon_root/installer directory if not exits
+        process = subprocess.Popen(['mkdir', '-p', os.path.join(self.photon_root, "installer")], stdout=self.output)
+        retval = process.wait()
+        # The function finalize_system will access the file /installer/mk-finalize-system.sh after chroot to photon_root. 
+        # Bind the /installer folder to self.photon_root/installer, so that after chroot to photon_root,
+        # the file can still be accessed as /installer/mk-finalize-system.sh.
+        process = subprocess.Popen(['mount', '--bind', '/installer', os.path.join(self.photon_root, "installer")], stdout=self.output)
+        retval = process.wait()
+
+    def update_fstab(self):
+        fstab_file = open(os.path.join(self.photon_root, "etc/fstab"), "w")
+        fstab_file.write("#system\tmnt-pt\ttype\toptions\tdump\tfsck\n")
+
+        for partition in self.install_config['disk']['partitions']:
+            options = 'defaults'
+            dump = 1
+            fsck = 2
+
+            if 'mountpoint' in partition and partition['mountpoint'] == '/':
+                options = options + ',barrier,noatime,noacl,data=ordered'
+                fsck = 1
+            
+            if partition['filesystem'] == 'swap':
+                mountpoint = 'swap'
+                dump = 0
+                fsck = 0
+            else:
+                mountpoint = partition['mountpoint']
+
+            fstab_file.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(
+                partition['path'],
+                mountpoint,
+                partition['filesystem'],
+                options,
+                dump,
+                fsck
+                ))
+        # Add the cdrom entry
+        fstab_file.write("/dev/cdrom\t/mnt/cdrom\tiso9660\tro,noauto\t0\t0\n")
+
+        fstab_file.close()
+
+    def generate_partitions_param(self, reverse = False):
+        if reverse:
+            step = -1
+        else:
+            step = 1
+        params = []
+        for partition in self.install_config['disk']['partitions'][::step]:
+            if partition["filesystem"] == "swap":
+                continue
+
+            params.extend(['--partitionmountpoint', partition["path"], partition["mountpoint"]])
+        return params
+
+    def initialize_system(self):
+        #Setup the disk
+        if (not self.install_config['iso_system']):
+            command = [self.mount_command, '-w', self.photon_root]
+            command.extend(self.generate_partitions_param())
+            process = subprocess.Popen(command, stdout=self.output)
+            retval = process.wait()
+        
+        if self.iso_installer:
+            self.bind_installer()
+            process = subprocess.Popen([self.prepare_command, '-w', self.photon_root, 'install'], stdout=self.output)
+            retval = process.wait()
+        else:
+            self.copy_files()
+            #Setup the filesystem basics
+            process = subprocess.Popen([self.prepare_command, '-w', self.photon_root], stdout=self.output)
+            retval = process.wait()
 
     def finalize_system(self):
         #Setup the disk
-        process = subprocess.Popen([self.chroot_command, '-w', self.photon_root, self.finalize_command, '-w', self.photon_root], stdout=self.output,  stderr=self.output)
+        process = subprocess.Popen([self.chroot_command, '-w', self.photon_root, self.finalize_command, '-w', self.photon_root], stdout=self.output)
         retval = process.wait()
         if self.iso_installer:
-            # just copy the initrd /boot -> /photon_mnt/boot
-            shutil.copy('/boot/initrd.img-no-kmods', self.photon_root + '/boot/')
-        elif not self.local_install:
-            #Build the initrd
-            process = subprocess.Popen([self.chroot_command, '-w', self.photon_root, './mkinitramfs', '-n', '/boot/initrd.img-no-kmods'],  stdout=self.output,  stderr=self.output)
-            retval = process.wait()
-            process = subprocess.Popen(["./mk-initrd", '-w', self.photon_root],  stdout=self.output,  stderr=self.output)
-            retval = process.wait()
 
+            modules.commons.dump(modules.commons.LOG_FILE_NAME)
+            shutil.copy(modules.commons.LOG_FILE_NAME, self.photon_root + '/var/log/')
+
+            # unmount the installer directory
+            process = subprocess.Popen(['umount', os.path.join(self.photon_root, "installer")], stdout=self.output)
+            retval = process.wait()
+            # remove the installer directory
+            process = subprocess.Popen(['rm', '-rf', os.path.join(self.photon_root, "installer")], stdout=self.output)
+            retval = process.wait()
+            # Disable the swap file
+            process = subprocess.Popen(['swapoff', '-a'], stdout=self.output)
+            retval = process.wait()
+            # remove the tdnf cache directory and the swapfile.
+            process = subprocess.Popen(['rm', '-rf', os.path.join(self.photon_root, "cache")], stdout=self.output)
 
     def install_package(self,  package_name):
         rpm_params = ''
-        
-        if 'type' in self.install_config and (self.install_config['type'] in ['micro', 'minimal']):
+
+        os.environ["RPMROOT"] = self.rpm_path
+        rpm_params = rpm_params + ' --force '
+        rpm_params = rpm_params + ' --root ' + self.photon_root
+        rpm_params = rpm_params + ' --dbpath /var/lib/rpm '
+
+        if ('type' in self.install_config and (self.install_config['type'] in ['micro', 'minimal'])) or self.install_config['iso_system']:
             rpm_params = rpm_params + ' --excludedocs '
 
-        process = subprocess.Popen([self.chroot_command, '-w', self.photon_root, self.install_package_command, '-w', self.photon_root, package_name, rpm_params],  stdout=self.output,  stderr=self.output)
+        process = subprocess.Popen([self.install_package_command, '-w', self.photon_root, package_name, rpm_params],  stdout=self.output)
+
         return process.wait()
 
-    def replace_string_in_file(self,  filename,  search_string,  replace_string):
-        with open(filename, "r") as source:
-            lines=source.readlines()
+    def execute_modules(self, phase):
+        modules_paths = glob.glob('modules/m_*.py')
+        for mod_path in modules_paths:
+            module = mod_path.replace('/', '.', 1)
+            module = os.path.splitext(module)[0]
+            try:
+                __import__(module)
+                mod = sys.modules[module]
+            except ImportError:
+                modules.commons.log(modules.commons.LOG_ERROR, 'Error importing module {}'.format(module))
+                continue
+            
+            # the module default is disabled
+            if not hasattr(mod, 'enabled') or mod.enabled == False:
+                modules.commons.log(modules.commons.LOG_INFO, "module {} is not enabled".format(module))
+                continue
+            # check for the install phase
+            if not hasattr(mod, 'install_phase'):
+                modules.commons.log(modules.commons.LOG_ERROR, "Error: can not defind module {} phase".format(module))
+                continue
+            if mod.install_phase != phase:
+                modules.commons.log(modules.commons.LOG_INFO, "Skipping module {0} for phase {1}".format(module, phase))
+                continue
+            if not hasattr(mod, 'execute'):
+                modules.commons.log(modules.commons.LOG_ERROR, "Error: not able to execute module {}".format(module))
+                continue
+            mod.execute(module, self.ks_config, self.install_config, self.photon_root)
 
-        with open(filename, "w") as destination:
-            for line in lines:
-                destination.write(re.sub(search_string,  replace_string,  line))
+    def get_install_size_of_a_package(self, name_size_pairs, package):
+        modules.commons.log(modules.commons.LOG_INFO, "Find the install size of: {} ".format(package))
+        for index, name in enumerate(name_size_pairs, start=0):
+            if name[name.find(":") + 1:].strip() == package.strip():  
+                item = name_size_pairs[index + 1] 
+                size = item[item.find("(") + 1:item.find(")")]
+                return int(size)
+        raise LookupError("Cannot find package {} in the repo.".format(package))
+    def get_size_of_packages(self):
+        #call tdnf info to get the install size of all the packages.
+        process = subprocess.Popen(['tdnf', 'info', '--installroot', self.photon_root], stdout=subprocess.PIPE)
+        out,err = process.communicate()
+        if err != None and err != 0:
+            modules.commons.log(modules.commons.LOG_ERROR, "Failed to get infomation from : {} with error code {}".format(package, err))
 
-    def update_root_password(self):
-        shadow_password = self.install_config['password']
-
-        #replace root blank password in passwd file to point to shadow file
-        self.replace_string_in_file(self.passwd_filename,  "root::", "root:x:")
-
-        if os.path.isfile(self.shadow_filename) == False:
-            with open(self.shadow_filename, "w") as destination:
-                destination.write("root:"+shadow_password+":")
-        else:
-            #add password hash in shadow file
-            self.replace_string_in_file(self.shadow_filename, "root::", "root:"+shadow_password+":")
-
-    def update_hostname(self):
-        self.hostname = self.install_config['hostname']
-        outfile = open(self.hostname_file,  'wb')
-        outfile.write(self.hostname)
-        outfile.close()
-
-        self.replace_string_in_file(self.hosts_file, r'127\.0\.0\.1\s+localhost', '127.0.0.1\tlocalhost\n127.0.0.1\t' + self.hostname)
-
-    def update_openssh_config(self):
-        if 'public_key' in self.install_config:
-
-            # Adding the authorized keys
-            if not os.path.exists(self.authorized_keys_dir):
-                os.makedirs(self.authorized_keys_dir)
-            with open(self.authorized_keys_filename, "a") as destination:
-                destination.write(self.install_config['public_key'] + "\n")
-            os.chmod(self.authorized_keys_filename, 0600)
-
-            # Change the sshd config to allow root login
-            process = subprocess.Popen(["sed", "-i", "s/^\\s*PermitRootLogin\s\+no/PermitRootLogin yes/", self.sshd_config_filename], stdout=self.output,  stderr=self.output)
-            return process.wait()
+        name_size_pairs = re.findall("(?:^Name.*$)|(?:^.*Install Size.*$)", out, re.M)
+        selected_packages = self.install_config['packages']
+        self.size_of_packages = {}
+        progressbar_num_items = 0
+        for package in selected_packages:
+            size = self.get_install_size_of_a_package(name_size_pairs, package)
+            progressbar_num_items += size;
+            self.size_of_packages[package] = size;
+        self.progress_bar.update_num_items(progressbar_num_items)
 
 
+    def run(self, command, comment = None):
+        if comment != None:
+            modules.commons.log(modules.commons.LOG_INFO, "Installer: {} ".format(comment))
+            self.progress_bar.update_loading_message(comment)
+
+        modules.commons.log(modules.commons.LOG_INFO, "Installer: {} ".format(command))
+        process = subprocess.Popen([command], shell=True, stdout=subprocess.PIPE)
+        out,err = process.communicate()
+        if err != None and err != 0 and "systemd-tmpfiles" not in command:
+            modules.commons.log(modules.commons.LOG_ERROR, "Installer: failed in {} with error code {}".format(command, err))
+            modules.commons.log(modules.commons.LOG_ERROR, out)
+            self.exit_gracefully(None, None)
+
+        return err

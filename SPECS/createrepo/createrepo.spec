@@ -2,14 +2,17 @@
 
 Summary: 	Creates a common metadata repository
 Name: 		createrepo
-Version: 	0.10.3
-Release: 	1
+Version: 	0.10.4
+Release: 	2%{?dist}
 License:	GPLv2+
 Group: 		System Environment/Base
 Vendor:		VMware, Inc.
 Distribution: 	Photon
 Source0: 	%{name}-%{version}.tar.gz
-URL: 		http://linux.duke.edu/metadata/
+%define sha1 createrepo=b4e88b3a8cb4b4ef7154991d33948e3d05bd9663
+Source1:        https://sourceforge.net/projects/pychecker/files/pychecker/0.8.19/pychecker-0.8.19.tar.gz
+%define sha1 pychecker=acbc469b4ecde0182e9be42dceeae5375a923ff3
+URL: 		http://createrepo.baseurl.org/download/
 BuildArchitectures: noarch
 Requires: python2 >= 2.1, rpm-devel, rpm >= 0:4.1.1, libxml2
 Requires: yum-metadata-parser, yum >= 3.2.7
@@ -17,17 +20,25 @@ Requires: bash
 Requires: deltarpm
 BuildRequires: bash
 BuildRequires: deltarpm
-BuildRequires: yum-metadata-parser, yum, python2, rpm-devel, rpm, libxml2, python2, python2-libs
+BuildRequires: yum-metadata-parser, yum, rpm-devel, rpm, libxml2, python2, python2-libs
+
 %description
 This utility will generate a common metadata repository from a directory of
 rpm packages
 
 %prep
 %setup -q
-
+tar xf %{SOURCE1} --no-same-owner
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT install
+
+%check
+pushd pychecker-0.8.19
+python setup.py install
+popd
+
+make %{?_smp_mflags} check 
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
@@ -48,6 +59,10 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %{python_sitelib}/createrepo
 
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.10.4-2
+-	GA - Bump release of all rpms
+* Tue Feb 23 2016 Kumar Kaushik <kaushikk@vmware.com> 0.10.4
+- Updating to new version.
 * Thu Dec 20 2007 Seth Vidal <skvidal at fedoraproject.org>
 - beginning of the new version
 

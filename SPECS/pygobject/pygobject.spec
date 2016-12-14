@@ -2,7 +2,7 @@
 
 Name:           pygobject
 Version:        3.10.2
-Release:	1
+Release:	3%{?dist}
 Summary:        Python Bindings for GObject
 Group:          Development/Languages
 License:        LGPLv2+
@@ -10,6 +10,7 @@ Vendor:		VMware, Inc.
 Distribution:	Photon
 URL:            ftp://ftp.gnome.org
 Source0:        ftp://ftp.gnome.org/pub/GNOME/sources/pygobject/3.10/pygobject-3.10.2.tar.xz
+%define sha1 pygobject=693cc1cb692a8f21ff27d28eaa780f5e67cafb1a
 Requires:	python2
 Requires:	gobject-introspection
 Requires:	glib-devel
@@ -32,6 +33,9 @@ make
 %install
 make install DESTDIR=%{buildroot}
 
+%check
+make %{?_smp_mflags} check
+
 %clean
 rm -rf %{buildroot}
 
@@ -45,5 +49,9 @@ rm -rf %{buildroot}
 %{_includedir}/*
 
 %changelog
+*       Mon Oct 03 2016 ChangLee <changLee@vmware.com> 3.10.2-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 3.10.2-2
+-	GA - Bump release of all rpms
 *	Sat Jan 24 2015 Touseef Liaqat <tliaqat@vmware.com> 7.19.5.1
 -	Initial build.	First version

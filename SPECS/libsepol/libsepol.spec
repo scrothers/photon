@@ -1,10 +1,13 @@
 Summary:	SELinux binary policy manipulation library 
 Name:		libsepol
-Version:	2.4
-Release:	1
+Version:	2.5
+Release:	2%{?dist}
 License:	LGPLv2+
 Group:		System Environment/Libraries
-Source0:	https://raw.githubusercontent.com/wiki/SELinuxProject/selinux/files/releases/20150202/%{name}-%{version}.tar.gz
+Source0:	https://raw.githubusercontent.com/wiki/SELinuxProject/selinux/files/releases/20160107/%{name}-%{version}-rc1.tar.gz
+%define sha1 libsepol=0bf77d9849f715b29a8ac901461df0cc46da750b
+Source1:        https://sourceforge.net/projects/cunit/files/CUnit-2.1-2-src.tar.bz2
+%define sha1 CUnit=6c2d0627eb64c09c7140726d6bf814cf531a3ce0
 URL:		http://www.selinuxproject.org
 Vendor:		VMware, Inc.
 Distribution:	Photon
@@ -37,7 +40,9 @@ The libsepol-devel package contains the libraries and header files
 needed for developing applications that manipulate binary policies. 
 
 %prep
-%setup -q
+%setup -qn %{name}-%{version}-rc1
+sed  -i 's/int rc;/int rc = SEPOL_OK;/' ./cil/src/cil_binary.c
+tar xf %{SOURCE1} --no-same-owner
 
 %build
 make clean
@@ -55,6 +60,13 @@ rm -f %{buildroot}%{_bindir}/genpolbools
 rm -f %{buildroot}%{_bindir}/genpolusers
 rm -f %{buildroot}%{_bindir}/chkcon
 rm -rf %{buildroot}%{_mandir}/man8
+
+%check
+pushd CUnit-2.1-2/
+./configure --prefix=/usr
+make
+make install
+popd
 
 %clean
 rm -rf %{buildroot}
@@ -83,5 +95,9 @@ exit 0
 %{_lib}/libsepol.so.1
 
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 2.5-2
+-	GA - Bump release of all rpms
+*   Fri Jan 22 2016 Xiaolin Li <xiaolinl@vmware.com> 2.5-1
+-   Updated to version 2.5
 *	Wed Feb 25 2015 Divya Thaluru <dthaluru@vmware.com> 2.4-1
 -	Initial build.	First version

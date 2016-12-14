@@ -1,19 +1,24 @@
 Summary:	Cyrus Simple Authentication Service Layer (SASL) library
 Name:		cyrus-sasl
 Version:	2.1.26
-Release:	1
+Release:	10%{?dist}
 License:	Custom
 URL:		http://cyrusimap.web.cmu.edu/
 Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution: 	Photon
 Source0:	ftp://ftp.cyrusimap.org/cyrus-sasl/%{name}-%{version}.tar.gz
-Source1:	http://www.linuxfromscratch.org/blfs/downloads/svn/blfs-bootscripts-20140919.tar.bz2
+%define sha1 cyrus-sasl=d6669fb91434192529bd13ee95737a8a5040241c
 Patch0:		http://www.linuxfromscratch.org/patches/blfs/svn/cyrus-sasl-2.1.26-fixes-3.patch
-Requires:	openssl
-Requires:	krb5 >= 1.12
+BuildRequires:  systemd
 BuildRequires:	openssl-devel
-BuildRequires:  krb5 >= 1.12
+BuildRequires:  krb5-devel >= 1.12
+BuildRequires:  e2fsprogs-devel
+BuildRequires:  Linux-PAM
+Requires:   openssl
+Requires:   krb5 >= 1.12
+Requires:       Linux-PAM
+Requires:       systemd
 %description
 The Cyrus SASL package contains a Simple Authentication and Security 
 Layer, a method for adding authentication support to 
@@ -25,7 +30,6 @@ protocol and the connection.
 %prep
 %setup -q
 %patch0 -p1
-tar xf %{SOURCE1}
 %build
 autoreconf -fi
 pushd saslauthd
@@ -40,11 +44,10 @@ popd
 	--sysconfdir=/etc \
 	--with-plugindir=%{_libdir}/sasl2 \
     --without-dblib \
-    --without-saslauthd \
+    --with-saslauthd=/run/saslauthd \
     --without-authdaemond \
     --disable-macos-framework \
     --disable-sample \
-    --disable-cram \
     --disable-digest \
     --disable-otp \
     --disable-plain \
@@ -56,34 +59,65 @@ popd
     --enable-fast-install \
     --enable-krb4
 
-make %{?_smp_mflags}
+make
 %install
 [ %{buildroot} != "/"] && rm -rf %{buildroot}/*
 make DESTDIR=%{buildroot} install
 find %{buildroot}/%{_libdir} -name '*.la' -delete
 install -D -m644 COPYING %{buildroot}/usr/share/licenses/%{name}/LICENSE
-#	daemonize
-pushd blfs-bootscripts-20140919
-make DESTDIR=%{buildroot} install-saslauthd
-popd
 %{_fixperms} %{buildroot}/*
+
+mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
+cat << EOF >> %{buildroot}/%{_sysconfdir}/sysconfig/saslauthd
+# Directory in which to place saslauthd's listening socket, pid file, and so
+# on.  This directory must already exist.
+SOCKETDIR=/run/saslauthd
+
+# Mechanism to use when checking passwords.  Run "saslauthd -v" to get a list
+# of which mechanism your installation was compiled with the ablity to use.
+MECH=pam
+
+# Additional flags to pass to saslauthd on the command line.  See saslauthd(8)
+# for the list of accepted flags.
+FLAGS=
+EOF
+
+mkdir -p %{buildroot}/lib/systemd/system
+cat << EOF >> %{buildroot}/lib/systemd/system/saslauthd.service
+[Unit]
+Description=SASL authentication daemon.
+
+[Service]
+Type=forking
+PIDFile=/run/saslauthd/saslauthd.pid
+EnvironmentFile=/etc/sysconfig/saslauthd
+ExecStart=/usr/sbin/saslauthd -m \$SOCKETDIR -a \$MECH \$FLAGS
+RuntimeDirectory=saslauthd
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 %check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
-%post	-p /sbin/ldconfig
-%postun	-p /sbin/ldconfig
+make %{?_smp_mflags} check
+
+%post
+%{_sbindir}/ldconfig 
+%systemd_post saslauthd.service
+
+%postun
+/sbin/ldconfig
+%systemd_postun_with_restart saslauthd.service
+
+%preun
+%systemd_preun saslauthd.service
+
 %clean
 rm -rf %{buildroot}/*
 %files
 %defattr(-,root,root)
-/etc/rc.d/init.d/saslauthd
-/etc/rc.d/rc0.d/K49saslauthd
-/etc/rc.d/rc1.d/K49saslauthd
-/etc/rc.d/rc2.d/S24saslauthd
-/etc/rc.d/rc3.d/S24saslauthd
-/etc/rc.d/rc4.d/S24saslauthd
-/etc/rc.d/rc5.d/S24saslauthd
-/etc/rc.d/rc6.d/K49saslauthd
 /etc/sysconfig/saslauthd
+/lib/systemd/system/saslauthd.service
 %{_includedir}/*
 %{_libdir}/*.so*
 %{_libdir}/pkgconfig/*
@@ -91,6 +125,26 @@ rm -rf %{buildroot}/*
 %{_sbindir}/*
 %{_mandir}/man3/*
 %{_datadir}/licenses/%{name}/LICENSE
+%{_mandir}/man8/saslauthd.8.gz
+
 %changelog
-*	Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 2.1.26-1
--	Initial build.	First version
+*   Thu Nov 24 2016 Alexey Makhalov <amakhalov@vmware.com> 2.1.26-10
+-   Required krb5-devel.
+*   Wed Oct 05 2016 ChangLee <changlee@vmware.com> 2.1.26-9
+-   Modified %check
+*   Thu May 26 2016 Divya Thaluru <dthaluru@vmware.com>  2.1.26-8
+-   Fixed logic to restart the active services after upgrade
+*   Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 2.1.26-7
+-   GA - Bump release of all rpms
+*   Tue May 3 2016 Divya Thaluru <dthaluru@vmware.com>  2.1.26-6
+-   Fixing spec file to handle rpm upgrade scenario correctly
+*   Thu Dec 10 2015 Xiaolin Li <xiaolinl@vmware.com>  2.1.26-5
+-   Add systemd to Requires and BuildRequires.
+*   Wed Nov 11 2015 Xiaolin Li <xiaolinl@vmware.com> 2.1.26-4
+-   Add saslauthd service to systemd.
+*   Tue Sep 01 2015 Vinay Kulkarni <kulkarniv@vmware.com> 2.1.26-3
+-   Enable CRAM.
+*   Thu Jul 16 2015 Divya Thaluru <dthaluru@vmware.com> 2.1.26-2
+-   Disabling parallel threads in make
+*   Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 2.1.26-1
+-   Initial build. First version

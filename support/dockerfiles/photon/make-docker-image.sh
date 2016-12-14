@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ "$#" -lt 2 ]; then
-	echo "Script to create new Photon Docker image."
-	echo "Usage: $0 <path to workspace> <installation type>"
+if [ "$#" -lt 1 ]; then
+	echo "Script to create new photon base docker image."
+	echo "Usage: $0 <path to workspace>"
 	exit -1
 fi
 
@@ -10,35 +10,54 @@ set -e
 set -x
 
 PROGRAM=$0
-ROOT=$1
-TYPE=$2
-IN_CONTAINER=$3
+MAIN_PACKAGE=$1
 
-ROOTFS_TAR_FILENAME=rootfs.tar.bz2
-INSTALLER_DIR=/workspace/photon/installer
-PACKAGE_BUILDER_DIR=/workspace/photon/support/package-builder
-DOCKERFILES_DIR=/workspace/photon/support/dockerfiles/photon/
 
-if [ -z "$IN_CONTAINER" ]
-then
-	rm -f $ROOTFS_TAR_FILENAME
-	docker run -it --privileged --rm -v $ROOT:/workspace toliaqat/ubuntu-dev bash /workspace/photon/support/dockerfiles/photon/${PROGRAM} $ROOT $TYPE "In Container" && \
-	[ -e "$ROOTFS_TAR_FILENAME" ] && docker build -t photon:$TYPE .
-else
-	
-	cd $INSTALLER_DIR && \
-	cp sample_config.json docker_image_config.json && \
-	sed -i -e "s/minimal/$TYPE/" docker_image_config.json && \
- 	./photonInstaller.py -f -w /mnt/photon-root docker_image_config.json && \
- 	rm docker_image_config.json
-	cd $PACKAGE_BUILDER_DIR && \
-	./umount-build-root.sh /mnt/photon-root && \
-	cd /mnt/photon-root && \
-	rm -rf tools/
-	rm -rf usr/src/
-	rm -rf boot/
-	rm -rf lib/modules/
-	tar cpjf /$ROOTFS_TAR_FILENAME . && \
-	cp /$ROOTFS_TAR_FILENAME $DOCKERFILES_DIR
-fi
+TEMP_CHROOT=$(pwd)/temp_chroot
+ROOTFS_TAR_FILENAME=photon-rootfs-$PHOTON_RELEASE_VERSION-$PHOTON_BUILD_NUMBER.tar.bz2
+STAGE_DIR=$(pwd)/stage
+
+rm -rf /etc/yum.repos.d/*
+
+cat > /etc/yum.repos.d/photon-local.repo <<- EOF
+
+[photon-local]
+name=VMware Photon Linux 1.0(x86_64)
+baseurl=file://$(pwd)/stage/RPMS
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY
+gpgcheck=0
+enabled=1
+skip_if_unavailable=True
+
+EOF
+
+rm -rf $TEMP_CHROOT 
+mkdir $TEMP_CHROOT
+
+rpm --root $TEMP_CHROOT/ --initdb
+# TODO: remove this line after updating photon-build image with new
+# versions of sqlite and rpm with -libs subpackages
+tdnf upgrade -y -v sqlite-autoconf rpm
+
+tdnf upgrade -y tdnf
+tdnf --installroot $TEMP_CHROOT/ install -y bash coreutils filesystem findutils glibc grep photon-release photon-repos tdnf util-linux vim which
+
+rpm --root $TEMP_CHROOT/ --import $TEMP_CHROOT/etc/pki/rpm-gpg/*
+
+cd $TEMP_CHROOT
+# cleanup anything not needed inside rootfs
+rm -rf usr/src/
+rm -rf home/*
+# rm -rf var/lib/yum/*
+rm -rf var/log/*
+
+#find var/cache/tdnf/photon/rpms -type f -name "*.rpm" -exec rm {} \;
+tdnf install -y tar
+tar cpjf ../$ROOTFS_TAR_FILENAME .
+mkdir -p $STAGE_DIR
+mv ../$ROOTFS_TAR_FILENAME $STAGE_DIR/
+cd ..
+
+# cleanup
+rm -rf $TEMP_CHROOT
 

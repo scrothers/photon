@@ -1,11 +1,13 @@
 # Got the intial spec from Fedora and modified it
 Summary:	An enhanced version of csh, the C shell
 Name:		tcsh
-Version:	6.18.01
-Release:	1
+Version:	6.19.00
+Release:	4%{?dist}
 License:	BSD
 Group:		System Environment/Shells
 Source:		http://www.sfr-fresh.com/unix/misc/%{name}-%{version}.tar.gz
+%define sha1 tcsh=cdb1abe319fab5d3caff101c393293e5b3607f0c
+Patch0:         tcsh-6.19.00-calloc-gcc-5.patch
 URL:		http://www.tcsh.org/
 Vendor:		VMware, Inc.
 Distribution: 	Photon
@@ -26,6 +28,7 @@ like syntax.
 
 %prep
 %setup -q
+%patch0 -p1
 
 %build
 sed -i -e 's|\$\*|#&|' -e 's|fR/g|&m|' tcsh.man2html &&
@@ -70,21 +73,25 @@ make check
 rm -rf %{buildroot}
 
 %post
-if [ ! -f /etc/shells ]; then
- echo "%{_bindir}/tcsh" >> /etc/shells
- echo "%{_bindir}/csh"	>> /etc/shells
-else
- grep -q '^%{_bindir}/tcsh$' /etc/shells || \
- echo "%{_bindir}/tcsh" >> /etc/shells
- grep -q '^%{_bindir}/csh$'  /etc/shells || \
- echo "%{_bindir}/csh"	>> /etc/shells
+if [ $1 -eq 1 ] ; then
+  if [ ! -f /etc/shells ]; then
+   echo "%{_bindir}/tcsh" >> /etc/shells
+   echo "%{_bindir}/csh"	>> /etc/shells
+  else
+   grep -q '^%{_bindir}/tcsh$' /etc/shells || \
+   echo "%{_bindir}/tcsh" >> /etc/shells
+   grep -q '^%{_bindir}/csh$'  /etc/shells || \
+   echo "%{_bindir}/csh"	>> /etc/shells
+  fi
 fi
 
 %postun
-if [ ! -x %{_bindir}/tcsh ]; then
- grep -v '^%{_bindir}/tcsh$'  /etc/shells | \
- grep -v '^%{_bindir}/csh$' > /etc/shells.rpm && \
- mv /etc/shells.rpm /etc/shells
+if [ $1 -eq 0 ] ; then
+  if [ ! -x %{_bindir}/tcsh ]; then
+   grep -v '^%{_bindir}/tcsh$'  /etc/shells | \
+   grep -v '^%{_bindir}/csh$' > /etc/shells.rpm && \
+   mv /etc/shells.rpm /etc/shells
+  fi
 fi
 
 %files -f tcsh.lang
@@ -94,5 +101,13 @@ fi
 %{_mandir}/man1/*.1*
 
 %changelog
+*	Wed May 25 2016 Anish Swaminathan <anishs@vmware.com> 6.19.00-4
+-	Fix calloc for gcc 5 optimization
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 6.19.00-3
+-	GA - Bump release of all rpms
+*   	Wed May 4 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 6.19.00-2
+-   	Fix for upgrade issues
+*	Thu Jan 21 2016 Anish Swaminathan <anishs@vmware.com> 6.19.00-1
+-	Upgrade version
 *	Wed Apr 1 2015 Divya Thaluru <dthaluru@vmware.com> 6.18.01-1
 -	Initial build. First version

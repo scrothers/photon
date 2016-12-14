@@ -10,8 +10,8 @@
 
 Summary:        A database access API for perl
 Name:           perl-DBI
-Version:        1.633
-Release:        1
+Version:        1.634
+Release:        2%{?dist}
 Group:          Development/Libraries
 License:        GPL+ or Artistic
 URL:            http://dbi.perl.org/
@@ -19,6 +19,7 @@ URL:            http://dbi.perl.org/
 # license is not a FSF free license. 
 # Source0:        http://www.cpan.org/authors/id/T/TI/TIMB/DBI-%{version}.tar.gz
 Source0:        DBI-%{version}_repackaged.tar.gz
+%define sha1 DBI=fa7b80ea3e3b41195d7d39252a19ad5f25e970f8
 Vendor:		VMware, Inc.
 Distribution:	Photon
 BuildRequires:  perl
@@ -85,5 +86,9 @@ make test
 %{_mandir}/man3/*.3*
 
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.634-2
+-	GA - Bump release of all rpms
+*	Thu Jan 21 2016 Anish Swaminathan <anishs@vmware.com> 1.634-1
+-	Upgrade version
 *	Fri Apr 3 2015 Divya Thaluru <dthaluru@vmware.com> 1.633-1
 -	Initial version.

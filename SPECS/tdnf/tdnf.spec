@@ -1,26 +1,25 @@
 #
 # tdnf spec file
 #
-
-#dont terminate build for unpackaged files.
-%define _unpackaged_files_terminate_build 0
-
 Summary:	dnf/yum equivalent using C libs
 Name:		tdnf
-Version:	1.0
-Release:	1
+Version:	1.1.0
+Release:	1%{?dist}
 Vendor:		VMware, Inc.
 Distribution:	Photon
 License:	VMware
 Url:		http://www.vmware.com
 Group:		Applications/RPM
-Requires:	hawkey, librepo, rpm
+Requires:	hawkey, librepo, rpm-libs
 BuildRequires:	popt-devel
 BuildRequires:	rpm-devel
 BuildRequires:	glib-devel
 BuildRequires:	hawkey-devel
-BuildRequires:	librepo
+BuildRequires:	openssl-devel
+
+BuildRequires:	librepo-devel
 Source0:	%{name}-%{version}.tar.gz
+%define sha1 tdnf=15544a87ea01d6215fed35bd2d1299776f7daca1
 
 %description
 tdnf is a yum/dnf equivalent
@@ -35,19 +34,17 @@ Requires:	tdnf = %{version}-%{release}
 Development files for tdnf
 
 %prep
-rm -rf $RPM_BUILD_DIR/tdnf
-zcat $RPM_SOURCE_DIR/%{name}-%{version}.tar.gz | tar -xvf -
+%setup -q
 
 %build
-cd $RPM_BUILD_DIR/tdnf
+autoreconf -i
 ./configure --prefix=%{_prefix} --bindir=%{_bindir} --libdir=%{_libdir} --sysconfdir=/etc
-make clean
-make
+make %{?_smp_mflags}
 
 %install
-cd $RPM_BUILD_DIR/tdnf
 make DESTDIR=%{buildroot} install
 mkdir -p %{buildroot}/var/cache/tdnf
+ln -sf %{_bindir}/tdnf %{buildroot}%{_bindir}/tyum
 
 # Pre-install
 %pre
@@ -62,7 +59,6 @@ mkdir -p %{buildroot}/var/cache/tdnf
     # First argument is 2 => Upgrade
 
     /sbin/ldconfig
-    ln -sf %{_bindir}/tdnf %{_bindir}/tyum
 
 # Pre-uninstall
 %preun
@@ -74,7 +70,6 @@ mkdir -p %{buildroot}/var/cache/tdnf
 %postun
 
     /sbin/ldconfig
-    rm -f %{_bindir}/tyum
 
     # First argument is 0 => Uninstall
     # First argument is 1 => Upgrade
@@ -82,17 +77,55 @@ mkdir -p %{buildroot}/var/cache/tdnf
 %files
     %defattr(-,root,root,0755)
     %{_bindir}/tdnf
+    %{_bindir}/tyum
     %{_libdir}/*.so*
-    /etc/tdnf/*
-    #/etc/yum.repos.d/*
+    %config(noreplace) %{_sysconfdir}/tdnf/tdnf.conf
     %dir /var/cache/tdnf
 
 %files devel
     %defattr(-,root,root)
-    %{_includedir}/*
-    %{_libdir}/*
+    %{_includedir}/tdnf/*.h
+    %{_libdir}/*.a
+    %{_libdir}/*.la
+    %exclude %{_libdir}/debug
+    %{_libdir}/pkgconfig/tdnf.pc
 
 %changelog
+*       Thu Dec 08 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.1.0-1
+-       update to v1.1.0
+*       Thu Nov 17 2016 Alexey Makhalov <amakhalov@vmware.com> 1.0.9-3
+-       Use rpm-libs at runtime
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.9-2
+-	GA - Bump release of all rpms
+*       Fri May 20 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.9-1
+-       Update to 1.0.9. Contains fixes for updateinfo.
+*       Wed May 4 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.8-3
+-       Fix link installs, fix devel header dir
+*       Fri Apr 1 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.8-2
+-       Update version which was missed with 1.0.8-1, apply string limits
+*       Fri Apr 1 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.8-1
+-       Code scan fixes, autotest path fix, support --releasever
+*       Thu Jan 14 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.7
+-       Fix return codes on install and check-update
+-       Add tests for install existing and update
+*       Wed Jan 13 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.6
+-       Support distroverpkg and add tests to work with make check
+*       Mon Dec 14 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.5
+-       Support for multiple packages in alter commands
+-       Support url vars for releasever and basearch
+*       Fri Oct 2 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.4
+-       Fix upgrade to work without args, Engage distro-sync
+-       Fix install to resolve to latest available
+-       Fix formats, fix refresh on download output
+*       Tue Sep 8 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.3
+-       Fix metadata creation issues. Engage refresh flag.
+-       Do not check gpgkey when gpgcheck is turned off in repo.
+*       Thu Jul 23 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.2
+-       Support reinstalls in transaction. Handle non-existent packages correctly.
+*       Mon Jul 13 2015 Alexey Makhalov <amakhalov@vmware.com> 1.0.1-2
+-       Create -debuginfo package. Use parallel make.
+*       Tue Jun 30 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.1
+-       Proxy support, keepcache fix, valgrind leaks fix
 *       Fri Jan 23 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0
 -       Initial build.  First version
 

@@ -2,12 +2,13 @@
 
 Name:           python-iniparse
 Version:        0.4
-Release:        1.0
+Release:        3%{?dist}
 Summary:        Python Module for Accessing and Modifying Configuration Data in INI files
 Group:          Development/Libraries
 License:        MIT
 URL:            http://code.google.com/p/iniparse/
 Source0:        http://iniparse.googlecode.com/files/iniparse-%{version}.tar.gz
+%define sha1 iniparse=2b2af8a19f3e5c212c27d7c524cd748fa0b38650
 Vendor:		VMware, Inc.
 Distribution:	Photon
 BuildRequires:	python2-devel
@@ -36,6 +37,16 @@ rm -rf $RPM_BUILD_ROOT
 chmod 644 $RPM_BUILD_ROOT//usr/share/doc/iniparse-%{version}/index.html
 mv $RPM_BUILD_ROOT/usr/share/doc/iniparse-%{version} $RPM_BUILD_ROOT/usr/share/doc/python-iniparse-%{version}
 
+%check
+cp -r iniparse/ tests/
+cd tests
+python test_misc.py
+python test_tidy.py
+python test_fuzz.py
+python test_ini.py
+python test_multiprocessing.py
+python test_unicode.py
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -49,6 +60,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+*       Mon Oct 03 2016 ChangLee <changLee@vmware.com> 0.4-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.4-2
+-	GA - Bump release of all rpms
 * Sat Jun 12 2010 Paramjit Oberoi <param@cs.wisc.edu> - 0.4-1
 - Release 0.4
 * Sat Apr 17 2010 Paramjit Oberoi <param@cs.wisc.edu> - 0.3.2-1

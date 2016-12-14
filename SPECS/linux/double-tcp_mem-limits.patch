@@ -1,0 +1,11 @@
+--- a/net/ipv4/tcp.c	2016-08-20 09:09:38.000000000 -0700
++++ b/net/ipv4/tcp.c	2016-09-01 14:52:17.239459557 -0700
+@@ -3104,7 +3104,7 @@
+ 
+ static void __init tcp_init_mem(void)
+ {
+-	unsigned long limit = nr_free_buffer_pages() / 16;
++	unsigned long limit = nr_free_buffer_pages() / 8;
+ 
+ 	limit = max(limit, 128UL);
+ 	sysctl_tcp_mem[0] = limit / 4 * 3;		/* 4.68 % */

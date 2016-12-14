@@ -10,7 +10,7 @@ import math
 from curses import panel
 
 class ProgressBar(object):
-    def __init__(self, starty, startx, width):
+    def __init__(self, starty, startx, width, new_win=False):
         self.timer = None
         self.loadding_timer = None
         self.timer_lock = threading.Lock()
@@ -26,18 +26,35 @@ class ProgressBar(object):
         self.window.bkgd(' ', curses.color_pair(2)) #defaultbackground color
         self.progress = 0
 
+        self.new_win = new_win
+        self.x=startx
+        self.y=starty
+
+        if new_win:
+            self.contentwin = curses.newwin(7, width+2)
+            self.contentwin.bkgd(' ', curses.color_pair(2)) #Default Window color
+            self.contentwin.erase()
+            self.contentwin.box()
+            self.contentpanel = curses.panel.new_panel(self.contentwin)
+            self.contentpanel.move(starty-1, startx-1)
+            self.contentpanel.hide()
+
+
         self.panel = panel.new_panel(self.window)
         self.panel.move(starty, startx)
         self.panel.hide()
         panel.update_panels()
 
-    def initialize(self, num_items, init_message):
-        self.num_items = num_items
+    def initialize(self, init_message):
+        self.num_items = 0
         self.message = init_message
         self.time_elapsed = 0
         self.time_remaining = 60
         self.timer = threading.Timer(1, self.update_time)
         self.timer.start()
+
+    def update_num_items(self, num_items):
+        self.num_items = num_items
 
     def update_message(self, message):
         self.message = message
@@ -66,6 +83,8 @@ class ProgressBar(object):
         self.window.refresh()
 
     def render_progress(self):
+        if self.num_items == 0:
+            return
         completed = self.progress * 100 / self.num_items
         completed_width = completed * self.width / 100
         completed_str, remaining_str = self.get_spaces(completed_width, self.width, completed)
@@ -88,6 +107,11 @@ class ProgressBar(object):
         self.render_progress()
 
     def show(self):
+        if self.new_win:
+            self.contentpanel.top()
+            self.contentpanel.move(self.y-1, self.x-1)
+            self.contentpanel.show()
+
         self.refresh()
         self.panel.top()
         self.panel.show()
@@ -110,7 +134,9 @@ class ProgressBar(object):
     def show_loading(self, message):
         self.loadding_timer = threading.Timer(self.loading_interval, self.update_loading_symbol)
         self.loadding_timer.start()
+        self.update_loading_message(message)
 
+    def update_loading_message(self, message):
         self.message_len = len(message)
         spaces = ' ' * self.width
         self.update_message(' ')
@@ -128,6 +154,8 @@ class ProgressBar(object):
                 self.loadding_timer.cancel()
                 self.loadding_timer = None
 
+        if self.new_win:
+            self.contentpanel.hide()
         self.panel.hide()
         panel.update_panels()
 

@@ -1,15 +1,16 @@
 Summary:	Certificate Authority certificates 
 Name:		ca-certificates
-Version:	20130524
-Release:	1
+Version:	20160109
+Release:	5%{?dist}
 License:	Custom
 URL:		http://mxr.mozilla.org/mozilla/source/security/nss/lib/ckfw/builtins/
 Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	certdata.txt
-Requires:	openssl
+Requires: 	openssl
 BuildRequires:	openssl
+Provides:       ca-certificates-mozilla
 %description
 The Public Key Inrastructure is used for many security issues in a
 Linux system. In order for a certificate to be trusted, it must be
@@ -219,7 +220,8 @@ install -Dm644 bin/make-cert.pl %{buildroot}/bin/make-cert.pl
 install -Dm644 bin/remove-expired-certs.sh %{buildroot}/bin/remove-expired-certs.sh
 %{_fixperms} %{buildroot}/*
 %post 
-cd /etc/ssl/certs;c_rehash .
+cd /etc/ssl/certs;
+for file in *.pem; do ln -sf $file `openssl x509 -hash -noout -in $file`.0; done
 exit 0
 %clean
 %files
@@ -230,5 +232,15 @@ exit 0
 /bin/remove-expired-certs.sh
 /bin/make-cert.pl
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 20160109-5
+-	GA - Bump release of all rpms
+*	Wed Feb 10 2016 Anish Swaminathan <anishs@vmware.com> 20160109-4
+-	Add Provides field
+*	Mon Feb 03 2016 Anish Swaminathan <anishs@vmware.com> 20160109-3
+-	Force create links for certificates
+*	Mon Feb 01 2016 Anish Swaminathan <anishs@vmware.com> 20160109-2
+-	Remove c_rehash dependency
+*       Wed Jan 13 2016 Divya Thaluru <dthaluru@vmware.com> 20160109-1
+-       Updating mozilla certdata.txt to latest revision
 *	Wed Oct 15 2014 Divya Thaluru <dthaluru@vmware.com> 20130524-1
 -	Initial build.	First version

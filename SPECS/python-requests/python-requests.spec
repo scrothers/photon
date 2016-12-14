@@ -1,11 +1,12 @@
 Name:           python-requests
-Version:        2.5.1
-Release:        0
+Version:        2.9.1
+Release:        3%{?dist}
 Url:            http://python-requests.org
 Summary:        Awesome Python HTTP Library That's Actually Usable
 License:        Apache2
 Group:          Development/Languages/Python
 Source0:        http://pypi.python.org/packages/source/r/requests/requests-%{version}.tar.gz
+%define sha1 requests=17f01c47a0d7c676f6291608ef2f43db3fa74095
 
 BuildRequires: python2
 BuildRequires: python2-libs
@@ -49,11 +50,20 @@ python setup.py build
 %install
 python setup.py install --prefix=%{_prefix} --root=%{buildroot}
 
+%check
+python setup.py test
+
 %files
 %defattr(-,root,root)
 %doc README.rst HISTORY.rst LICENSE NOTICE
 %{python_sitelib}/*
 
 %changelog
-* Wed Mar 04 2015 Mahmoud Bassiouny <mbassiouny@vmware.com>
-- Initial packaging for Photon
+*       Mon Oct 04 2016 ChangLee <changlee@vmware.com> 2.9.1-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 2.9.1-2
+-	GA - Bump release of all rpms
+*       Tue Feb 23 2016 Harish Udaiya Kumar <hudaiyakumar@vmware.com> 2.9.1-1
+-       Updated to version 2.9.1
+*       Wed Mar 04 2015 Mahmoud Bassiouny <mbassiouny@vmware.com>
+-       Initial packaging for Photon

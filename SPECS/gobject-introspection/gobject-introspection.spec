@@ -2,12 +2,13 @@
 
 Name:       	gobject-introspection
 Summary:    	Introspection system for GObject-based libraries
-Version:    	1.43.3
-Release:    	1
+Version:    	1.46.0
+Release:    	3%{?dist}
 Group:      	Development/Libraries
 License:    	GPLv2+, LGPLv2+, MIT
 URL:        	http://live.gnome.org/GObjectIntrospection
 Source0:    	%{name}-%{version}.tar.xz
+%define sha1 gobject-introspection=ca4842479b119da1c8d3fbf5006adcc46920ce72
 Vendor:		VMware, Inc.
 Distribution:	Photon
 BuildRequires:  gettext
@@ -31,6 +32,7 @@ Group:      Development/Languages
 Requires:   gobject-introspection
 BuildRequires:	python2-devel
 BuildRequires:	python2-libs
+BuildRequires:  python-xml
 Requires:	python2
 %description python
 This package contains a Python package for handling the introspection
@@ -42,6 +44,9 @@ Group:      Development/Libraries
 Requires:   gobject-introspection
 Requires:   glib-devel
 Requires:   python2
+Requires:   python2-devel
+Requires:   python2-libs
+Requires:   python-xml
 
 %description devel
 Libraries and headers for gobject-introspection.
@@ -63,6 +68,10 @@ mkdir -p $RPM_BUILD_ROOT/%{python_sitelib}
 mv $RPM_BUILD_ROOT/%{_libdir}/gobject-introspection/giscanner $RPM_BUILD_ROOT/%{python_sitelib}
 
 rm -rf $RPM_BUILD_ROOT/%{_datarootdir}/gtk-doc/html
+find %{buildroot}%{_libdir} -name '*.la' -delete
+
+%check
+make  %{?_smp_mflags} check
 
 %post -p /sbin/ldconfig
 
@@ -72,7 +81,7 @@ rm -rf $RPM_BUILD_ROOT/%{_datarootdir}/gtk-doc/html
 %files
 %defattr(-,root,root,-)
 %doc COPYING
-%{_libdir}/lib*
+%{_libdir}/lib*.so.*
 %dir %{_libdir}/girepository-1.0
 %{_libdir}/girepository-1.0/*.typelib
 
@@ -83,6 +92,7 @@ rm -rf $RPM_BUILD_ROOT/%{_datarootdir}/gtk-doc/html
 %files devel
 %defattr(-,root,root,-)
 %{_libdir}/lib*.so
+%{_libdir}/lib*.a
 %{_libdir}/pkgconfig/*
 %{_includedir}/*
 %{_bindir}/g-ir-*
@@ -90,3 +100,17 @@ rm -rf $RPM_BUILD_ROOT/%{_datarootdir}/gtk-doc/html
 %{_datadir}/aclocal/introspection.m4
 %{_datadir}/gobject-introspection-1.0
 %doc %{_mandir}/man1/*.gz
+
+%changelog
+*       Thu Oct 06 2016 ChangLee <changlee@vmware.com> 1.46.0-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.46.0-2
+-	GA - Bump release of all rpms
+*       Thu Feb 25 2016 Kumar Kaushik <kaushikk@vmware.com> 1.46.0-1
+-       Updated version.
+*       Mon Oct 12 2015 Xiaolin Li <xiaolinl@vmware.com> 1.43.3-4
+-       Moving static lib files to devel package.
+*       Fri Oct 9 2015 Xiaolin Li <xiaolinl@vmware.com> 1.43.3-3
+-       Removing la files from packages.
+*	Mon Jul 6 2015 Alexey Makhalov <amakhalov@vmware.com> 1.43.3-2
+-	Added more requirements for devel subpackage.

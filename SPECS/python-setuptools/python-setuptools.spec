@@ -1,12 +1,13 @@
 Summary: Download, build, install, upgrade, and uninstall Python packages
 Name: python-setuptools
-Version: 12.4
-Release: 1
+Version: 21.0.0
+Release: 3%{?dist}
 License: Python or ZPLv2.0
 Group: Development/Languages
 URL: https://pypi.python.org/pypi/setuptools
 
 Source0: https://pypi.python.org/packages/source/s/setuptools/setuptools-%{version}.tar.gz
+%define sha1 setuptools=38f9bd98b2c36bd4bae64ea06495e35e43b09b43
 
 BuildArch: noarch
 
@@ -36,15 +37,23 @@ find %{buildroot}%{python_sitelib} -name '*.exe' | xargs rm -f
 find %{buildroot}%{python_sitelib} -name '*.txt' | xargs chmod -x
 chmod +x %{buildroot}%{python_sitelib}/setuptools/command/easy_install.py
 
+%check
+%{__python} setup.py test
+
 %clean
 %{__rm} -rf %{buildroot}
 
 %files
 %defattr(-, root, root)
-%doc *.txt
 %{_bindir}/*
 %{python_sitelib}/*
 
 %changelog
+*       Mon Oct 10 2016 ChangLee <changlee@vmware.com> 21.0.0-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 21.0.0-2
+-	GA - Bump release of all rpms
+*	Wed May 4 2016 Xiaolin Li <xiaolinl@vmware.com> 21.0.0-1
+-	Update setuptools to version 21.0.0
 * Wed Feb 11 2015 Mahmoud Bassiouny <mbassiouny@vmware.com>
 - Initial packaging for Photon

@@ -1,10 +1,17 @@
 Summary:	C debugger
 Name:		gdb
 Version:	7.8.2	
-Release:	1
+Release:	3%{?dist}
 License:	GPLv2+
 URL:		http://www.gnu.org/software/%{name}
 Source0:	http://ftp.gnu.org/gnu/gdb/%{name}-%{version}.tar.gz
+%define sha1 gdb=67cfbc6efcff674aaac3af83d281cf9df0839ff9
+Source1:        http://heanet.dl.sourceforge.net/sourceforge/tcl/tcl8.5.14-src.tar.gz
+%define sha1 tcl=9bc452eec453c2ed37625874b9011563db687b07
+Source2:        http://prdownloads.sourceforge.net/expect/expect5.45.tar.gz
+%define sha1 expect=e634992cab35b7c6931e1f21fbb8f74d464bd496
+Source3:         https://ftp.gnu.org/pub/gnu/dejagnu/dejagnu-1.5.3.tar.gz
+%define sha1 dejagnu=d81288e7d7bd38e74b7fee8e570ebfa8c21508d9
 Group:		Development/Tools
 Vendor:		VMware, Inc.
 Distribution:	Photon
@@ -21,6 +28,10 @@ GDB, the GNU Project debugger, allows you to see what is going on
 another program was doing at the moment it crashed. 
 %prep
 %setup -q
+tar xf %{SOURCE1} --no-same-owner
+tar xf %{SOURCE2} --no-same-owner
+tar xf %{SOURCE3} --no-same-owner
+
 %build
 ./configure \
 	--prefix=%{_prefix}
@@ -41,9 +52,31 @@ rm %{buildroot}%{_libdir}/libopcodes.a
 rm %{buildroot}%{_datadir}/locale/de/LC_MESSAGES/opcodes.mo
 rm %{buildroot}%{_datadir}/locale/fi/LC_MESSAGES/bfd.mo
 rm %{buildroot}%{_datadir}/locale/fi/LC_MESSAGES/opcodes.mo
+%find_lang %{name} --all-name
+
 %check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
-%files
+pushd tcl8.5.14/unix
+./configure --enable-threads --prefix=/usr
+make
+make install
+popd
+
+pushd expect5.45
+./configure --prefix=/usr
+make
+make install
+ln -svf expect5.45/libexpect5.45.so /usr/lib
+popd
+
+pushd dejagnu-1.5.3
+./configure --prefix=/usr
+make
+make install 
+popd
+
+make %{?_smp_mflags} check
+
+%files -f %{name}.lang
 %defattr(-,root,root)
 %{_includedir}/*.h
 %{_includedir}/gdb/*.h
@@ -54,33 +87,11 @@ make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
 %{_datadir}/gdb/system-gdbinit/*
 %{_bindir}/*
 %{_mandir}/*/*
-%lang(da) %{_datarootdir}/locale/da/LC_MESSAGES/bfd.mo
-%lang(da) %{_datarootdir}/locale/da/LC_MESSAGES/opcodes.mo
-%lang(es) %{_datarootdir}/locale/es/LC_MESSAGES/bfd.mo
-%lang(es) %{_datarootdir}/locale/es/LC_MESSAGES/opcodes.mo
-%lang(fr) %{_datarootdir}/locale/fr/LC_MESSAGES/bfd.mo
-%lang(fr) %{_datarootdir}/locale/fr/LC_MESSAGES/opcodes.mo
-%lang(ga) %{_datarootdir}/locale/ga/LC_MESSAGES/opcodes.mo
-%lang(id) %{_datarootdir}/locale/id/LC_MESSAGES/bfd.mo
-%lang(id) %{_datarootdir}/locale/id/LC_MESSAGES/opcodes.mo
-%lang(it) %{_datarootdir}/locale/it/LC_MESSAGES/opcodes.mo
-%lang(ja) %{_datarootdir}/locale/ja/LC_MESSAGES/bfd.mo
-%lang(nl) %{_datarootdir}/locale/nl/LC_MESSAGES/opcodes.mo
-%lang(pt_BR) %{_datarootdir}/locale/pt_BR/LC_MESSAGES/opcodes.mo
-%lang(ro) %{_datarootdir}/locale/ro/LC_MESSAGES/bfd.mo
-%lang(ro) %{_datarootdir}/locale/ro/LC_MESSAGES/opcodes.mo
-%lang(ru) %{_datarootdir}/locale/ru/LC_MESSAGES/bfd.mo
-%lang(rw) %{_datarootdir}/locale/rw/LC_MESSAGES/bfd.mo
-%lang(sv) %{_datarootdir}/locale/sv/LC_MESSAGES/bfd.mo
-%lang(sv) %{_datarootdir}/locale/sv/LC_MESSAGES/opcodes.mo
-%lang(tr) %{_datarootdir}/locale/tr/LC_MESSAGES/bfd.mo
-%lang(tr) %{_datarootdir}/locale/tr/LC_MESSAGES/opcodes.mo
-%lang(uk) %{_datarootdir}/locale/uk/LC_MESSAGES/bfd.mo
-%lang(uk) %{_datarootdir}/locale/uk/LC_MESSAGES/opcodes.mo
-%lang(vi) %{_datarootdir}/locale/vi/LC_MESSAGES/bfd.mo
-%lang(vi) %{_datarootdir}/locale/vi/LC_MESSAGES/opcodes.mo
-%lang(zh_CN) %{_datarootdir}/locale/zh_CN/LC_MESSAGES/bfd.mo
-%lang(zh_CN) %{_datarootdir}/locale/zh_CN/LC_MESSAGES/opcodes.mo
+
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 7.8.2-3
+-	GA - Bump release of all rpms
+*	Tue Nov 10 2015 Xiaolin Li <xiaolinl@vmware.com> 7.8.2-2
+-	Handled locale files with macro find_lang
 *	Wed Apr 08 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 7.8.2-1
 -	Initial build. First version

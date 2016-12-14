@@ -1,12 +1,13 @@
 
 Summary:      	libgpg-error
 Name:         	libgpg-error
-Version:      	1.17
-Release:      	1
+Version:      	1.21
+Release:      	3%{?dist}
 License:      	GPLv2+
 URL:          	ftp://ftp.gnupg.org/gcrypt/alpha/libgpg-error/
 Group:		Development/Libraries
 Source0:	ftp://ftp.gnupg.org/gcrypt/alpha/libgpg-error/%{name}-%{version}.tar.bz2
+%define sha1 libgpg-error=ef1dfb2f8761f019091180596e9e638d8cc37513
 Vendor:		VMware, Inc.
 Distribution:	Photon
 
@@ -14,6 +15,19 @@ Distribution:	Photon
 This is a library that defines common error values for all GnuPG
 components.  Among these are GPG, GPGSM, GPGME, GPG-Agent, libgcrypt,
 pinentry, SmartCard Daemon and possibly more in the future.
+
+%package devel
+Summary:	Libraries and header files for libgpg-error
+Requires:	%{name} = %{version}-%{release}
+%description devel
+Static libraries and header files for the support library for libgpg-error
+
+%package lang
+Summary: Additional language files for libgpg-error
+Group:		Applications/System
+Requires: %{name} = %{version}-%{release}
+%description lang
+These are the additional language files of libgpg-error.
 
 %prep
 %setup -q
@@ -30,6 +44,10 @@ echo $%{_bindir}
 #cp %{buildroot}/usr/local/lib/* %{buildroot}%{_libdir}/
 find %{buildroot}/%{_libdir} -name '*.la' -delete
 rm -rf %{buildroot}/%{_infodir}
+%find_lang %{name}
+
+%check
+make %{?_smp_mflags} check
 
 %post 
 /sbin/ldconfig
@@ -41,29 +59,26 @@ echo %{_libdir}
 %files
 %defattr(-,root,root)
 %{_bindir}/*
-%{_libdir}/*gpg-error.so*
-%{_includedir}/gpg-error.h
-%{_datadir}/aclocal/gpg-error.m4
+%{_libdir}/libgpg-error.so*
+%exclude %{_datadir}/aclocal/gpg-error.m4
 %{_mandir}/man1/*
-%{_datarootdir}/common-lisp/*
-%lang(cs) %{_datarootdir}/locale/cs/LC_MESSAGES/libgpg-error.mo
-%lang(da) %{_datarootdir}/locale/da/LC_MESSAGES/libgpg-error.mo
-%lang(de) %{_datarootdir}/locale/de/LC_MESSAGES/libgpg-error.mo
-%lang(eo) %{_datarootdir}/locale/eo/LC_MESSAGES/libgpg-error.mo
-%lang(fr) %{_datarootdir}/locale/fr/LC_MESSAGES/libgpg-error.mo
-%lang(it) %{_datarootdir}/locale/it/LC_MESSAGES/libgpg-error.mo
-%lang(ja) %{_datarootdir}/locale/ja/LC_MESSAGES/libgpg-error.mo
-%lang(nl) %{_datarootdir}/locale/nl/LC_MESSAGES/libgpg-error.mo
-%lang(pl) %{_datarootdir}/locale/pl/LC_MESSAGES/libgpg-error.mo
-%lang(ro) %{_datarootdir}/locale/ro/LC_MESSAGES/libgpg-error.mo
-%lang(sv) %{_datarootdir}/locale/sv/LC_MESSAGES/libgpg-error.mo
-%lang(uk) %{_datarootdir}/locale/uk/LC_MESSAGES/libgpg-error.mo
-%lang(vi) %{_datarootdir}/locale/vi/LC_MESSAGES/libgpg-error.mo
-%lang(zh_CN) %{_datarootdir}/locale/zh_CN/LC_MESSAGES/libgpg-error.mo
+%exclude %{_datarootdir}/common-lisp/*
 
+%files devel
+%defattr(-,root,root)
+%{_includedir}/gpg-error.h
+
+%files lang -f %{name}.lang
+%defattr(-,root,root)
 
 %changelog
-* Tue Dec 30 2014 Priyesh Padmavilasom <ppadmavilasom@vmware.com>
-- initial specfile.
-
-# EOF
+*   Wed Nov 23 2016 Alexey Makhalov <amakhalov@vmware.com> 1.21-3
+-   Added -lang subpackage
+*   Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.21-2
+-   GA - Bump release of all rpms
+*   Fri Jan 15 2016 Xiaolin Li <xiaolinl@vmware.com> 1.21-1
+-   Updated to version 1.21
+*   Tue Nov 10 2015 Xiaolin Li <xiaolinl@vmware.com> 1.17-2
+-   Handled locale files with macro find_lang
+*   Tue Dec 30 2014 Priyesh Padmavilasom <ppadmavilasom@vmware.com>
+-   initial specfile.

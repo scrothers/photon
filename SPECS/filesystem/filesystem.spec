@@ -1,12 +1,13 @@
 Summary:	Default file system
 Name:		filesystem
-Version:	7.5
-Release:	1
+Version:	1.0
+Release:	10%{?dist}
 License:	GPLv3
 Group:		System Environment/Base
 Vendor:		VMware, Inc.
 URL:		http://www.linuxfromscratch.org
 Distribution:	Photon
+
 %description
 The filesystem package is one of the basic packages that is installed
 on a Linux system. Filesystem contains the basic directory
@@ -18,10 +19,10 @@ for the directories. This version is for a system configured with systemd.
 #
 #	6.5.  Creating Directories
 #
-install -vdm 755 %{buildroot}/{dev,proc,run/lock,sys}
-install -vdm 755 %{buildroot}/{bin,boot,etc/{opt,sysconfig},home,lib,mnt,opt}
+install -vdm 755 %{buildroot}/{dev,proc,run/{media/{floppy,cdrom},lock},sys}
+install -vdm 755 %{buildroot}/{boot,etc/{opt,sysconfig},home,mnt}
 install -vdm 755 %{buildroot}/etc/systemd/network
-install -vdm 755 %{buildroot}/{media/{floppy,cdrom},sbin,srv,var}
+install -vdm 755 %{buildroot}/{var}
 install -dv -m 0750 %{buildroot}/root
 install -dv -m 1777 %{buildroot}/tmp %{buildroot}/var/tmp
 install -vdm 755 %{buildroot}/usr/{,local/}{bin,include,lib,sbin,src}
@@ -29,22 +30,42 @@ install -vdm 755 %{buildroot}/usr/{,local/}share/{color,dict,doc,info,locale,man
 install -vdm 755 %{buildroot}/usr/{,local/}share/{misc,terminfo,zoneinfo}
 install -vdm 755 %{buildroot}/usr/libexec
 install -vdm 755 %{buildroot}/usr/{,local/}share/man/man{1..8}
-install -vdm 644 %{buildroot}/etc/profile.d
+install -vdm 755 %{buildroot}/etc/profile.d
+install -vdm 755 %{buildroot}/usr/lib/debug/{lib,bin,sbin,usr}
+
+ln -svfn usr/lib %{buildroot}/lib
+ln -svfn usr/bin %{buildroot}/bin
+ln -svfn usr/sbin %{buildroot}/sbin
+ln -svfn run/media %{buildroot}/media
+
+ln -svfn ../bin %{buildroot}/usr/lib/debug/usr/bin
+ln -svfn ../sbin %{buildroot}/usr/lib/debug/usr/sbin
+ln -svfn ../lib %{buildroot}/usr/lib/debug/usr/lib
+
 #	Symlinks for AMD64
 %ifarch x86_64
-	ln -sv lib %{buildroot}/lib64
-	ln -sv lib %{buildroot}/usr/lib64
-	ln -sv lib %{buildroot}/usr/local/lib64
+	ln -svfn usr/lib %{buildroot}/lib64
+	ln -svfn lib %{buildroot}/usr/lib64
+	ln -svfn ../lib %{buildroot}/usr/local/lib64
+        ln -svfn lib %{buildroot}/usr/lib/debug/lib64
+        ln -svfn ../lib %{buildroot}/usr/lib/debug/usr/lib64
+
 %endif
-install -vdm 755 %{buildroot}/var/{log,mail,spool}
-ln -sv ../run %{buildroot}/var/run
-ln -sv ../run/lock %{buildroot}/var/lock
+install -vdm 755 %{buildroot}/var/{log,mail,spool,mnt,srv}
+
+ln -svfn var/srv %{buildroot}/srv
+ln -svfn ../run %{buildroot}/var/run
+ln -svfn ../run/lock %{buildroot}/var/lock
 install -vdm 755 %{buildroot}/var/{opt,cache,lib/{color,misc,locate},local}
+install -vdm 755 %{buildroot}/mnt/cdrom
+install -vdm 755 %{buildroot}/mnt/hgfs
+
 #
 #	6.6. Creating Essential Files and Symlinks
 #
-ln -sv /proc/self/mounts %{buildroot}/etc/mtab
-touch %{buildroot}/etc/mtab
+ln -svfn /proc/self/mounts %{buildroot}/etc/mtab
+#touch -f %{buildroot}/etc/mtab
+
 touch %{buildroot}/var/log/{btmp,lastlog,wtmp}
 #
 #	Configuration files
@@ -61,7 +82,7 @@ systemd-journal-upload:x:75:75:systemd Journal Upload:/:/bin/false
 systemd-network:x:76:76:systemd Network Management:/:/bin/false
 systemd-resolve:x:77:77:systemd Resolver:/:/bin/false
 systemd-timesync:x:78:78:systemd Time Synchronization:/:/bin/false
-nobody:x:99:99:Unprivileged User:/dev/null:/bin/false
+nobody:x:65534:65533:Unprivileged User:/dev/null:/bin/false
 EOF
 cat > %{buildroot}/etc/group <<- "EOF"
 root:x:0:
@@ -86,6 +107,7 @@ systemd-journal:x:23:
 input:x:24:
 mail:x:34:
 lock:x:54:
+dip:x:30:
 systemd-bus-proxy:x:72:
 systemd-journal-gateway:x:73:
 systemd-journal-remote:x:74:
@@ -93,19 +115,53 @@ systemd-journal-upload:x:75:
 systemd-network:x:76:
 systemd-resolve:x:77:
 systemd-timesync:x:78:
-nogroup:x:99:
-users:x:999:
+nogroup:x:65533:
+users:x:100:
+sudo:x:27:
+wheel:x:28:
 EOF
-touch %{buildroot}/etc/mtab
 #
 #	7.2.2. Creating Network Interface Configuration Files"
 #
-cat > %{buildroot}/etc/systemd/network/10-dhcp-eth0.network <<- "EOF"
+cat > %{buildroot}/etc/systemd/network/10-dhcp-en.network <<- "EOF"
 [Match]
-Name=eth0
+Name=e*
 
 [Network]
 DHCP=yes
+EOF
+#
+#   Creating Proxy Configuration"
+#
+cat > %{buildroot}/etc/sysconfig/proxy <<- "EOF"
+# Enable a generation of the proxy settings to the profile.
+# This setting allows to turn the proxy on and off while
+# preserving the particular proxy setup.
+#
+PROXY_ENABLED="no"
+
+# Some programs (e.g. wget) support proxies, if set in
+# the environment.
+# Example: HTTP_PROXY="http://proxy.provider.de:3128/"
+HTTP_PROXY=""
+
+# Example: HTTPS_PROXY="https://proxy.provider.de:3128/"
+HTTPS_PROXY=""
+
+# Example: FTP_PROXY="http://proxy.provider.de:3128/"
+FTP_PROXY=""
+
+# Example: GOPHER_PROXY="http://proxy.provider.de:3128/"
+GOPHER_PROXY=""
+
+# Example: SOCKS_PROXY="socks://proxy.example.com:8080"
+SOCKS_PROXY=""
+
+# Example: SOCKS5_SERVER="office-proxy.example.com:8881"
+SOCKS5_SERVER=""
+
+# Example: NO_PROXY="www.me.de, do.main, localhost"
+NO_PROXY="localhost, 127.0.0.1"
 EOF
 #
 #	7.3. Customizing the /etc/hosts File"
@@ -113,14 +169,12 @@ EOF
 cat > %{buildroot}/etc/hosts <<- "EOF"
 # Begin /etc/hosts (network card version)
 
-127.0.0.1	localhost
+::1         ipv6-localhost ipv6-loopback
+127.0.0.1   localhost.localdomain
+127.0.0.1   localhost
 
 # End /etc/hosts (network card version)
 EOF
-#
-#	7.8. Configuring the system hostname
-#
-echo "HOSTNAME=photon.eng.vmware.com" > %{buildroot}/etc/sysconfig/network
 #
 #	7.9. Configuring the setclock Script"
 #
@@ -195,12 +249,13 @@ pathappend () {
 export -f pathremove pathprepend pathappend
 
 # Set the initial path
-export PATH=$PATH:/bin:/usr/bin
+# Block unnessary as this is set elsewhere.
+# export PATH=$PATH:/bin:/usr/bin
 
-if [ $EUID -eq 0 ] ; then
-        pathappend /sbin:/usr/sbin
-        unset HISTFILE
-fi
+# if [ $EUID -eq 0 ] ; then
+#         pathappend /sbin:/usr/sbin
+#         unset HISTFILE
+# fi
 
 # Setup some environment variables.
 export HISTSIZE=1000
@@ -215,9 +270,9 @@ NORMAL="\[\e[0m\]"
 RED="\[\e[1;31m\]"
 GREEN="\[\e[1;32m\]"
 if [[ $EUID == 0 ]] ; then
-  PS1="$RED\u [ $NORMAL\w$RED ]# $NORMAL"
+  PS1="$RED\u@\h [ $NORMAL\w$RED ]# $NORMAL"
 else
-  PS1="$GREEN\u [ $NORMAL\w$GREEN ]\$ $NORMAL"
+  PS1="$GREEN\u@\h [ $NORMAL\w$GREEN ]\$ $NORMAL"
 fi
 
 for script in /etc/profile.d/*.sh ; do
@@ -227,8 +282,76 @@ for script in /etc/profile.d/*.sh ; do
 done
 
 unset script RED GREEN NORMAL
-
+umask 027
 # End /etc/profile
+EOF
+#
+#   The Proxy Bash Shell Startup File
+#
+cat > %{buildroot}/etc/profile.d/proxy.sh <<- "EOF"
+#
+# proxy.sh:              Set proxy environment
+#
+
+sys=/etc/sysconfig/proxy
+test -s $sys || exit 0
+while read line ; do
+    case "$line" in
+    \#*|"") continue ;;
+    esac
+    eval val=${line#*=}
+    case "$line" in
+    PROXY_ENABLED=*)
+        PROXY_ENABLED="${val}"
+        ;;
+    HTTP_PROXY=*)
+        test "$PROXY_ENABLED" = "yes" || continue
+        http_proxy="${val}"
+        export http_proxy
+        ;;
+    HTTPS_PROXY=*)
+        test "$PROXY_ENABLED" = "yes" || continue
+        https_proxy="${val}"
+        export https_proxy
+        ;;
+    FTP_PROXY=*)
+        test "$PROXY_ENABLED" = "yes" || continue
+        ftp_proxy="${val}"
+        export ftp_proxy
+        ;;
+    GOPHER_PROXY=*)
+        test "$PROXY_ENABLED" = "yes" || continue
+        gopher_proxy="${val}"
+        export gopher_proxy
+        ;;
+    SOCKS_PROXY=*)
+        test "$PROXY_ENABLED" = "yes" || continue
+        socks_proxy="${val}"
+        export socks_proxy
+        SOCKS_PROXY="${val}"
+        export SOCKS_PROXY
+        ;;
+    SOCKS5_SERVER=*)
+        test "$PROXY_ENABLED" = "yes" || continue
+        SOCKS5_SERVER="${val}"
+        export SOCKS5_SERVER
+        ;;
+    NO_PROXY=*)
+        test "$PROXY_ENABLED" = "yes" || continue
+        no_proxy="${val}"
+        export no_proxy
+        NO_PROXY="${val}"
+        export NO_PROXY
+    esac
+done < $sys
+unset sys line val
+
+if test "$PROXY_ENABLED" != "yes" ; then
+    unset http_proxy https_proxy ftp_proxy gopher_proxy no_proxy NO_PROXY socks_proxy SOCKS_PROXY SOCKS5_SERVER
+fi
+unset PROXY_ENABLED
+#
+# end of proxy.sh
 EOF
 #
 #	7.14. Creating the /etc/inputrc File
@@ -261,8 +384,10 @@ set bell-style none
 # for linux console
 "\e[1~": beginning-of-line
 "\e[4~": end-of-line
-"\e[5~": beginning-of-history
-"\e[6~": end-of-history
+# page up - history search backward
+"\e[5~": history-search-backward
+# page down - history search forward
+"\e[6~": history-search-forward
 "\e[3~": delete-char
 "\e[2~": quoted-insert
 
@@ -279,16 +404,8 @@ EOF
 #
 #	8.2. Creating the /etc/fstab File
 #
-cat > %{buildroot}/etc/fstab <<- "EOF"
-#	Begin /etc/fstab
-#	hdparm -I /dev/sda | grep NCQ --> can use barrier
-#system		mnt-pt		type		options			dump fsck
-/dev/sda1	/		    ext4	    defaults,barrier,noatime,noacl,data=ordered 1 1
-# /dev/cdrom      /media/cdrom      iso9660     ro              0   0
-# /dev/sda2	swap		swap		pri=1			0 0
-#	mount points
-#	End /etc/fstab
-EOF
+touch %{buildroot}/etc/fstab
+
 #
 #	8.3.2. Configuring Linux Module Load Order
 #
@@ -304,30 +421,25 @@ EOF
 #
 #		chapter 9.1. The End
 #
-echo "VMware Photon Linux 1.0 TP1" > %{buildroot}/etc/photon-release
-cat > %{buildroot}/etc/lsb-release <<- "EOF"
-DISTRIB_ID=VMware Photon
-DISTRIB_RELEASE=1.0 TP1
-DISTRIB_CODENAME=Photon
-DISTRIB_DESCRIPTION=VMware Photon 1.0 TP1
-EOF
+
+
 %files
 %defattr(-,root,root)
 #	Root filesystem
-%dir /bin
+/bin
 %dir /boot
 %dir /dev
 %dir /etc
 %dir /home
-%dir /lib
-%dir /media
+/lib
+
+/media
 %dir /mnt
-%dir /opt
 %dir /proc
 %dir /root
 %dir /run
-%dir /sbin
-%dir /srv
+/sbin
+/srv
 %dir /sys
 %dir /tmp
 %dir /usr
@@ -338,8 +450,6 @@ EOF
 %config(noreplace) /etc/group
 %config(noreplace) /etc/hosts
 %config(noreplace) /etc/inputrc
-%config(noreplace) /etc/photon-release
-%config(noreplace) /etc/lsb-release
 %config(noreplace) /etc/mtab
 %config(noreplace) /etc/passwd
 %config(noreplace) /etc/profile
@@ -348,19 +458,29 @@ EOF
 %dir /etc/sysconfig
 %config(noreplace) /etc/sysconfig/clock
 %config(noreplace) /etc/sysconfig/console
-%config(noreplace) /etc/sysconfig/network
+%config(noreplace) /etc/sysconfig/proxy
 %dir /etc/systemd/network
-%config(noreplace) /etc/systemd/network/10-dhcp-eth0.network
+%config(noreplace) /etc/systemd/network/10-dhcp-en.network
 %dir /etc/profile.d
+%config(noreplace) /etc/profile.d/proxy.sh
 #	media filesystem
-%dir /media/cdrom
-%dir /media/floppy
+%dir /run/media/cdrom
+%dir /run/media/floppy
 #	run filesystem
 %dir /run/lock
 #	usr filesystem
+%dir /mnt/cdrom
+%dir /mnt/hgfs
 %dir /usr/bin
 %dir /usr/include
 %dir /usr/lib
+%dir /usr/lib/debug
+%dir /usr/lib/debug/bin
+%dir /usr/lib/debug/lib
+%dir /usr/lib/debug/sbin
+/usr/lib/debug/usr/bin
+/usr/lib/debug/usr/lib
+/usr/lib/debug/usr/sbin
 %dir /usr/libexec
 %dir /usr/local
 %dir /usr/local/bin
@@ -414,6 +534,8 @@ EOF
 %dir /var/local
 %dir /var/log
 %dir /var/mail
+%dir /var/mnt
+%dir /var/srv
 %dir /var/opt
 %dir /var/spool
 %dir /var/tmp
@@ -421,14 +543,61 @@ EOF
 %attr(664,root,utmp)	/var/log/lastlog
 %attr(600,root,root)	/var/log/btmp
 /var/lock
-/var/run
+%ghost /var/run
 /var/run/lock
 #	Symlinks for AMD64
 %ifarch x86_64
 /lib64
 /usr/lib64
 /usr/local/lib64
+/usr/lib/debug/lib64
+/usr/lib/debug/usr/lib64
 %endif
 %changelog
-*	Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 7.5-1
--	Initial build. First version
+*   Wed Aug 24 2016 Alexey Makhalov <amakhalov@vmware.com> 1.0-10
+-   /etc/inputrc PgUp/PgDown for history search
+*   Tue Jul 12 2016 Divya Thaluru <dthaluru@vmware.com> 1.0-9
+-   Added filesystem for debug libraries and binaries
+*   Fri Jul 8 2016 Divya Thaluru <dthaluru@vmware.com> 1.0-8
+-   Removing multiple entries of localhost in /etc/hosts file
+*   Fri May 27 2016 Divya Thaluru <dthaluru@vmware.com> 1.0-7
+-   Fixed nobody user uid and group gid
+*   Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0-6
+-   GA - Bump release of all rpms
+*   Wed May 4 2016 Divya Thaluru <dthaluru@vmware.com> 1.0-5
+-   Removing non-existent users from /etc/group file
+*   Fri Apr 29 2016 Mahmoud Bassiouny <mbassiouny@vmware.com> 1.0-4
+-   Updating the /etc/hosts file
+*   Fri Apr 22 2016 Divya Thaluru <dthaluru@vmware.com> 1.0-3
+-   Setting default umask value to 027
+*   Thu Apr 21 2016 Anish Swaminathan <anishs@vmware.com> 1.0-2
+-   Version update for network file change
+*   Mon Jan 18 2016 Anish Swaminathan <anishs@vmware.com> 1.0-1
+-   Reset version to match with Photon version
+*   Wed Jan 13 2016 Mahmoud Bassiouny <mbassiouny@vmware.com> 7.5-13
+-   Support to set proxy configuration file - SLES proxy configuration implementation.
+*   Thu Jan 7 2016 Mahmoud Bassiouny <mbassiouny@vmware.com> 7.5-12
+-   Removing /etc/sysconfig/network file.
+*   Mon Nov 16 2015 Mahmoud Bassiouny <mbassiouny@vmware.com> 7.5-11
+-   Removing /etc/fstab mount entries.
+*   Mon Nov 16 2015 Sharath George <sharathg@vmware.com> 7.5-10
+-   Removint /opt from filesystem.
+*   Fri Oct 02 2015 Vinay Kulkarni <kulkarniv@vmware.com> 7.5-9
+-   Dump build-number and release version from macros.
+*   Fri Aug 14 2015 Sharath George <sharathg@vmware.com> 7.5-8
+-   upgrading release to TP2
+*   Tue Jun 30 2015 Alexey Makhalov <amakhalov@vmware.com> 7.5-7
+-   /etc/profile.d permission fix
+*   Tue Jun 23 2015 Divya Thaluru <dthaluru@vmware.com> 7.5-6
+-   Adding group dip
+*   Mon Jun 22 2015 Divya Thaluru <dthaluru@vmware.com> 7.5-5
+-   Fixing lsb-release file
+*   Tue Jun 16 2015 Alexey Makhalov <amakhalov@vmware.com> 7.5-4
+-   Change users group id to 100.
+-   Add audio group to users group.
+*   Mon Jun 15 2015 Sharath George <sharathg@vmware.com> 7.5-3
+-   Change the network match for dhcp.
+*   Mon May 18 2015 Touseef Liaqat <tliaqat@vmware.com> 7.5-2
+-   Update according to UsrMove.
+*   Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 7.5-1
+-   Initial build. First version

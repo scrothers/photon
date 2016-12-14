@@ -1,16 +1,24 @@
 Summary:	Contains the utilities for the ext2 file system
 Name:		e2fsprogs
-Version:	1.42.9
-Release:	1
+Version:	1.42.13
+Release:	4%{?dist}
 License:	GPLv2+
 URL:		http://e2fsprogs.sourceforge.net
 Group:		System Environment/Base
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	http://prdownloads.sourceforge.net/e2fsprogs/%{name}-%{version}.tar.gz
+%define sha1 e2fsprogs=77d1412472ac5a67f8954166ec16c37616074c37
+Requires:	%{name}-libs = %{version}-%{release}
 %description
 The E2fsprogs package contains the utilities for handling
 the ext2 file system.
+
+%package	libs
+Summary:	contains libraries used by other packages
+%description	libs
+It contains the libraries: libss and libcom_err
+
 %package	devel
 Summary:	Header and development files for e2fsprogs
 Requires:	%{name} = %{version}
@@ -33,20 +41,27 @@ PKG_CONFIG_PATH=/tools/lib/pkgconfig \
 	--disable-libuuid \
 	--disable-uuidd \
 	--disable-fsck \
-	--disable-silent-rules
+	--disable-silent-rules \
+	--enable-symlink-install
 make %{?_smp_mflags}
 %install
-cd build
+pushd build
 make DESTDIR=%{buildroot} install
 make DESTDIR=%{buildroot} install-libs
 chmod -v u+w %{buildroot}/%{_libdir}/{libcom_err,libe2p,libext2fs,libss}.a
 rm -rf %{buildroot}%{_infodir}
+popd
+%find_lang %{name}
+
 %check
 cd build
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
-%post	-p /sbin/ldconfig
-%postun	-p /sbin/ldconfig
-%files
+make %{?_smp_mflags} check
+
+%post
+/sbin/ldconfig
+%postun
+/sbin/ldconfig
+%files -f %{name}.lang
 %defattr(-,root,root)
 %config %{_sysconfdir}/mke2fs.conf
 %{_bindir}/compile_et
@@ -66,14 +81,10 @@ make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
 %{_sbindir}/filefrag
 %{_sbindir}/e2freefrag
 %{_sbindir}/mklost+found
-%{_lib}/libss.so.2
-%{_lib}/libext2fs.so.2.4
-%{_lib}/libcom_err.so.2.1
-%{_lib}/libss.so.2.0
-%{_lib}/libe2p.so.2.3
-%{_lib}/libcom_err.so.2
-%{_lib}/libe2p.so.2
-%{_lib}/libext2fs.so.2
+/lib/libext2fs.so.2.4
+/lib/libe2p.so.2.3
+/lib/libe2p.so.2
+/lib/libext2fs.so.2
 /sbin/e2label
 /sbin/e2image
 /sbin/tune2fs
@@ -93,22 +104,16 @@ make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
 /sbin/resize2fs
 /sbin/fsck.ext2
 /sbin/mkfs.ext3
-%{_libdir}/libcom_err.so
 %{_libdir}/libe2p.so
 %{_libdir}/libext2fs.so
-%lang(ca) %{_datarootdir}/locale/ca/LC_MESSAGES/e2fsprogs.mo
-%lang(cs) %{_datarootdir}/locale/cs/LC_MESSAGES/e2fsprogs.mo
-%lang(de) %{_datarootdir}/locale/de/LC_MESSAGES/e2fsprogs.mo
-%lang(es) %{_datarootdir}/locale/es/LC_MESSAGES/e2fsprogs.mo
-%lang(fr) %{_datarootdir}/locale/fr/LC_MESSAGES/e2fsprogs.mo
-%lang(id) %{_datarootdir}/locale/id/LC_MESSAGES/e2fsprogs.mo
-%lang(it) %{_datarootdir}/locale/it/LC_MESSAGES/e2fsprogs.mo
-%lang(nl) %{_datarootdir}/locale/nl/LC_MESSAGES/e2fsprogs.mo
-%lang(pl) %{_datarootdir}/locale/pl/LC_MESSAGES/e2fsprogs.mo
-%lang(sv) %{_datarootdir}/locale/sv/LC_MESSAGES/e2fsprogs.mo
-%lang(tr) %{_datarootdir}/locale/tr/LC_MESSAGES/e2fsprogs.mo
-%lang(vi) %{_datarootdir}/locale/vi/LC_MESSAGES/e2fsprogs.mo
-%lang(zh_CN) %{_datarootdir}/locale/zh_CN/LC_MESSAGES/e2fsprogs.mo
+
+%files libs
+/lib/libss.so.2
+/lib/libcom_err.so.2.1
+/lib/libss.so.2.0
+/lib/libcom_err.so.2
+%{_libdir}/libcom_err.so
+%{_libdir}/libss.so
 
 %files devel
 %{_includedir}/ss/ss_err.h
@@ -125,20 +130,30 @@ make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
 %{_includedir}/ext2fs/ext2_types.h
 %{_includedir}/ext2fs/ext2_ext_attr.h
 %{_includedir}/e2p/e2p.h
-%{_includedir}/quota/mkquota.h
 %{_includedir}/com_err.h
 %{_libdir}/libcom_err.a
 %{_libdir}/libss.a
 %{_libdir}/pkgconfig/ss.pc
 %{_libdir}/pkgconfig/ext2fs.pc
-%{_libdir}/pkgconfig/quota.pc
 %{_libdir}/pkgconfig/com_err.pc
 %{_libdir}/pkgconfig/e2p.pc
 %{_libdir}/libe2p.a
-%{_libdir}/libquota.a
 %{_libdir}/libext2fs.a
-%{_libdir}/libss.so
 %changelog
-*	Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 1.42.9-1
--	Initial build. First version
+*   Wed Nov 16 2016 Alexey Makhalov <amakhalov@vmware.com> 1.42.13-4
+-   Create libs subpackage for krb5
+*   Tue Sep 20 2016 Alexey Makhalov <amakhalov@vmware.com> 1.42.13-3
+-   Use symlinks - save a diskspace
+*   Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.42.13-2
+-   GA - Bump release of all rpms
+*   Tue Jan 12 2016 Xiaolin Li <xiaolinl@vmware.com> 1.42.13-1
+-   Updated to version 1.42.13
+*   Wed Dec 09 2015 Anish Swaminathan <anishs@vmware.com> 1.42.9-4
+-   Edit post script.
+*   Tue Nov 10 2015 Xiaolin Li <xiaolinl@vmware.com> 1.42.9-3
+-   Handled locale files with macro find_lang
+*   Mon May 18 2015 Touseef Liaqat <tliaqat@vmware.com> 1.42.9-2
+-   Update according to UsrMove.
+*   Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 1.42.9-1
+-   Initial build. First version
 

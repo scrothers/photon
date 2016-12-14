@@ -1,15 +1,18 @@
 Summary:	Docbook-xml-4.5
 Name:		docbook-xml
 Version:	4.5
-Release:	1
+Release:	6%{?dist}
 License:	MIT
 URL:		http://www.docbook.org
 Source0:	http://www.docbook.org/xml/4.5/%{name}-%{version}.zip
-Group:		Languages
+%define sha1 docbook-xml=b9124233b50668fb508773aa2b3ebc631d7c1620
+Group:		Development/Tools
 Vendor:		VMware, Inc.
 Distribution: 	Photon
 Requires: 	libxml2
+Requires:   libxml2-python
 BuildRequires: 	libxml2
+BuildRequires:  libxml2-python
 BuildRequires: 	unzip
 %description
 The DocBook XML DTD-4.5 package contains document type definitions for 
@@ -29,8 +32,7 @@ install -v -d -m755 %{buildroot}/usr/share/xml/docbook/%{name}-%{version}
 install -v -d -m755 %{buildroot}/etc/xml
 chown -R root:root .
 cp -v -af docbook.cat *.dtd ent/ *.mod %{buildroot}/usr/share/xml/docbook/%{name}-%{version}
-%check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
+
 %post
 if [ ! -e /etc/xml/docbook ]; then
     xmlcatalog --noout --create /etc/xml/docbook
@@ -41,43 +43,43 @@ xmlcatalog --noout --add "public" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//DTD DocBook XML CALS Table Model V4.5//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/calstblx.dtd" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/calstblx.dtd" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//DTD XML Exchange Table Model 19990315//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/soextblx.dtd" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/soextblx.dtd" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//ELEMENTS DocBook XML Information Pool V4.5//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/dbpoolx.mod" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/dbpoolx.mod" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//ELEMENTS DocBook XML Document Hierarchy V4.5//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/dbhierx.mod" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/dbhierx.mod" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//ELEMENTS DocBook XML HTML Tables V4.5//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/htmltblx.mod" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/htmltblx.mod" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//ENTITIES DocBook XML Notations V4.5//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/dbnotnx.mod" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/dbnotnx.mod" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//ENTITIES DocBook XML Character Entities V4.5//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/dbcentx.mod" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/dbcentx.mod" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "public" \
     "-//OASIS//ENTITIES DocBook XML Additional General Entities V4.5//EN" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5/dbgenent.mod" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5/dbgenent.mod" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "rewriteSystem" \
     "http://www.oasis-open.org/docbook/xml/4.5" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5" \
     /etc/xml/docbook &&
 xmlcatalog --noout --add "rewriteURI" \
     "http://www.oasis-open.org/docbook/xml/4.5" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5" \
     /etc/xml/docbook
 
 if [ ! -e /etc/xml/catalog ]; then
@@ -108,11 +110,11 @@ do
     /etc/xml/docbook
   xmlcatalog --noout --add "rewriteSystem" \
     "http://www.oasis-open.org/docbook/xml/$DTDVERSION" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5" \
     /etc/xml/docbook
   xmlcatalog --noout --add "rewriteURI" \
     "http://www.oasis-open.org/docbook/xml/$DTDVERSION" \
-    "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+    "file:///usr/share/xml/docbook/docbook-xml-4.5" \
     /etc/xml/docbook
   xmlcatalog --noout --add "delegateSystem" \
     "http://www.oasis-open.org/docbook/xml/$DTDVERSION/" \
@@ -123,13 +125,51 @@ do
     "file:///etc/xml/docbook" \
     /etc/xml/catalog
 done
-%postun
-rm /etc/xml/catalog
-rm /etc/xml/docbook
+
+%preun
+if [ $1 -eq 0 ] ; then
+    if [ -f /etc/xml/catalog ]; then
+        xmlcatalog --noout --del \
+        "file:///etc/xml/docbook" /etc/xml/catalog
+    fi
+    if [ -f /etc/xml/docbook ]; then
+        xmlcatalog --noout --del \
+        "file:///usr/share/xml/docbook/docbook-xml-4.5" /etc/xml/docbook
+        
+        for DTDVERSION in 4.1.2 4.2 4.3 4.4 %{version}
+        do
+            xmlcatalog --noout --del \
+            "http://www.oasis-open.org/docbook/xml/$DTDVERSION/docbookx.dtd" /etc/xml/docbook
+        done
+
+        for file in `find /usr/share/xml/docbook/%{name}-%{version}/*.dtd -printf "%f\n"`
+        do
+            xmlcatalog --noout --del \
+            "file:///usr/share/xml/docbook/docbook-xml-4.5/$file" /etc/xml/docbook
+        done
+
+        for file in `find /usr/share/xml/docbook/%{name}-%{version}/*.mod -printf "%f\n"`
+        do
+            xmlcatalog --noout --del \
+            "file:///usr/share/xml/docbook/docbook-xml-4.5/$file" /etc/xml/docbook
+        done
+    fi
+fi
+
 %files
 %defattr(-,root,root)
 /usr/share/xml/docbook/%{name}-%{version}
 /etc/xml
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 4.5-6
+-	GA - Bump release of all rpms
+*   Tue May 3 2016 Divya Thaluru <dthaluru@vmware.com>  4.5-5
+-   Fixing spec file to handle rpm upgrade scenario correctly
+*   Thu Mar 10 2016 XIaolin Li <xiaolinl@vmware.com> 4.5.1-4
+-   Correct the local folder name.
+*   Mon Jul 6 2015 Mahmoud Bassiouny <mbassiouny@vmware.com> 4.5.1-3
+-   Updated dependencies.
+*   Wed May 20 2015 Touseef Liaqat <tliaqat@vmware.com> 4.5.1-2
+-   Updated group.
 *	Mon Nov 24 2014 Divya Thaluru <dthaluru@vmware.com> 4.5-1
 -	Initial build. First version

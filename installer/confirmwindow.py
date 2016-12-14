@@ -11,13 +11,16 @@ from actionresult import ActionResult
 
 class ConfirmWindow(Window):
 
-    def __init__(self, height, width, maxy, maxx, menu_starty, message):
-        items =   [
+    def __init__(self, height, width, maxy, maxx, menu_starty, message, info=False):
+        if info:
+            items =   [('OK',  self.exit_function, True)]
+        else:
+            items =   [
                         ('Yes',  self.exit_function, True),
                         ('No',  self.exit_function, False)
                     ]
         self.menu = Menu(menu_starty,  maxx, items, can_navigate_outside = False, horizontal=True)
-        super(ConfirmWindow, self).__init__(height, width, maxy, maxx, 'Confirm', False, self.menu)
+        super(ConfirmWindow, self).__init__(height, width, maxy, maxx, 'Confirm', False, self.menu, items=[])
         self.addstr(0,0, message)
 
     def exit_function(self, yes):

@@ -1,0 +1,42 @@
+diff -ru open-vm-tools-stable-10.1.0/open-vm-tools/libDeployPkg/linuxDeployment.c open-vm-tools-stable-10.1.0-modified/open-vm-tools/libDeployPkg/linuxDeployment.c
+--- open-vm-tools-stable-10.1.0/open-vm-tools/libDeployPkg/linuxDeployment.c	2016-11-14 15:36:30.000000000 -0800
++++ open-vm-tools-stable-10.1.0-modified/open-vm-tools/libDeployPkg/linuxDeployment.c	2016-11-18 12:36:48.544140958 -0800
+@@ -558,13 +558,17 @@
+    close(fd);
+ 
+    // Create space and copy the command
+-   *command = malloc(VMWAREDEPLOYPKG_CMD_LENGTH);
++   *command = malloc(VMWAREDEPLOYPKG_CMD_LENGTH + 1);
+    if (!*command) {
+       SetDeployError("Error allocating memory.");
+       return FALSE;
+    }
+ 
+-   memcpy(*command, hdr.command, VMWAREDEPLOYPKG_CMD_LENGTH);
++   // will pad with '\0' if necessary
++   strncpy(*command, hdr.command, VMWAREDEPLOYPKG_CMD_LENGTH);
++   // hdr.command is a structure of fixed length VMWAREDEPLOYPKG_CMD_LENGTH
++   (*command)[VMWAREDEPLOYPKG_CMD_LENGTH] = '\0';
++
+    *archiveType = hdr.payloadType;
+    *flags = hdr.reserved;
+ 
+@@ -1042,6 +1046,18 @@
+       free(command);
+       deployStatus =  CloudInitSetup(EXTRACTPATH);
+    } else {
++      if ((strstr(command, "scripts/Customize.pl") != NULL) || (strstr(command, "scripts/customize.sh") != NULL)) {
++          free (command);
++          const char* PHOTON_OS_LAUNCH_COMMAND = "/bin/bash /usr/share/open-vm-tools/GOSC/gosc-scripts/imc-shell/imgcust-scripts/customize.sh /tmp/.vmware/linux/deploy/cust.cfg";
++
++          // The command will be parsed alter and can be of arbitrary length
++          command = strdup(PHOTON_OS_LAUNCH_COMMAND);
++          if (!command) {
++             SetDeployError("Error allocating memory.");
++             return DEPLOY_ERROR;
++          }
++          _DeployPkg_SkipReboot(true);
++      }
+       // Run the deployment command
+       sLog(log_info, "Launching deployment %s.  \n", command);
+       deploymentResult = ForkExecAndWaitCommand(command);

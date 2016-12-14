@@ -1,22 +1,22 @@
 %global _default_patch_fuzz 2
-Summary:	OpenLdap-2.4.40
+Summary:	OpenLdap-2.4.43
 Name:		openldap
-Version:	2.4.40
-Release:	1
+Version:	2.4.43
+Release:	3%{?dist}
 License:	OpenLDAP
 URL:		http://cyrusimap.web.cmu.edu/
 Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution:	Photon
-Source0:	ftp://ftp.openldap.org/pub/OpenLDAP/openldap-release/openldap-2.4.40.tgz
-Source1:	http://www.linuxfromscratch.org/blfs/downloads/svn/blfs-bootscripts-20140919.tar.bz2
-Patch0:		openldap-2.4.40-blfs_paths-1.patch
-Patch1:		openldap-2.4.40-symbol_versions-1.patch
+Source0:	ftp://ftp.openldap.org/pub/OpenLDAP/openldap-release/%{name}-%{version}.tgz
+%define sha1 openldap=3b52924df2f45e81f25ecbe37551bc837d090cfa
+Patch0:		openldap-2.4.43-consolidated-1.patch
 Patch2:		openldap-2.4.40-gssapi-1.patch
 Requires:       openssl >= 1.0.1, cyrus-sasl >= 2.1
 BuildRequires:  cyrus-sasl >= 2.1
 BuildRequires:  openssl-devel >= 1.0.1
 BuildRequires:	groff
+BuildRequires:	e2fsprogs-devel
 %description
 OpenLDAP is an open source suite of LDAP (Lightweight Directory Access
 Protocol) applications and development tools. LDAP is a set of
@@ -28,9 +28,7 @@ libraries, and documentation for OpenLDAP.
 %prep
 %setup -q
 %patch2 -p1
-%patch1 -p1
-%patch0 -p1 
-tar xf %{SOURCE1}
+%patch0 -p1
 %build
 
 autoconf
@@ -55,8 +53,10 @@ make %{?_smp_mflags}
 make install DESTDIR=%{buildroot}
 find %{buildroot}/%{_libdir} -name '*.la' -delete
 %{_fixperms} %{buildroot}/*
+
 %check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
+make %{?_smp_mflags} test
+
 %post	-p /sbin/ldconfig
 %postun	-p /sbin/ldconfig
 %clean
@@ -73,5 +73,13 @@ rm -rf %{buildroot}/*
 /etc/openldap/*
 
 %changelog
+*       Wed Oct 05 2016 ChangLee <changlee@vmware.com> 2.4.43-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 2.4.43-2
+-	GA - Bump release of all rpms
+* 	Thu Jan 21 2016 Xiaolin Li <xiaolinl@vmware.com> 2.4.43-1
+- 	Updated to version 2.4.43
+*	Fri Aug 14 2015 Vinay Kulkarni <kulkarniv@vmware.com> 2.4.40-2
+-	Patches for CVE-2015-1545 and CVE-2015-1546.
 *	Wed Oct 08 2014 Divya Thaluru <dthaluru@vmware.com> 2.4.40-1
 -	Initial build.	First version

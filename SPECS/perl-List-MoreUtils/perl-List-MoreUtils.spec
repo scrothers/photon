@@ -1,11 +1,12 @@
 # Got the intial spec from Fedora and modified it
 Summary:	Provide the stuff missing in List::Util
 Name:		perl-List-MoreUtils
-Version:	0.410
-Release:	1
+Version:	0.413
+Release:	2%{?dist}
 License:	GPL+ or Artistic
 URL:		http://search.cpan.org/dist/List-MoreUtils/
 Source0:	http://search.cpan.org/CPAN/authors/id/R/RE/REHSACK/List-MoreUtils-%{version}.tar.gz
+%define sha1 List-MoreUtils=1af39142f090e1a6b7918a3c26fc416f0cf0d84f
 Vendor:		VMware, Inc.
 Distribution:	Photon
 BuildRequires:	perl
@@ -36,11 +37,15 @@ make test
 %files
 %{perl_vendorarch}/auto/List/
 %{perl_vendorarch}/List/
-%{_libdir}/perl5/*
 %{_mandir}/man3/List::MoreUtils.3*
 %{_mandir}/man3/List::MoreUtils::PP.3*
 %{_mandir}/man3/List::MoreUtils::XS.3*
+%{_mandir}/man3/List::MoreUtils::Contributing.3.gz
 
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.413-2
+-	GA - Bump release of all rpms
+*   Tue Feb 23 2016 Xiaolin Li <xiaolinl@vmware.com> 0.413-1
+-   Updated to version 0.413
 *	Fri Apr 3 2015 Divya Thaluru <dthaluru@vmware.com> 0.410-1
 -	Initial version.

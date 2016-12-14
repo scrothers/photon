@@ -1,12 +1,13 @@
 # Got the intial spec from Fedora and modified it
 Summary:        YAML Ain't Markup Language (tm)
 Name:           perl-YAML
-Version:        1.14
-Release:        1
+Version:        1.15
+Release:        3%{?dist}
 License:        GPL+ or Artistic
 Group:          Development/Libraries
 URL:            http://search.cpan.org/dist/YAML/
 Source0:        http://search.cpan.org/CPAN/authors/id/I/IN/INGY/YAML-%{version}.tar.gz
+%define sha1 YAML=c297e548f0398f2cbd93ce593be083517538f5f5
 Vendor:		VMware, Inc.
 Distribution:	Photon
 BuildArch:      noarch
@@ -30,16 +31,17 @@ specification.
 %setup -q -n YAML-%{version}
 
 %build
-perl Makefile.PL INSTALLDIRS=vendor 
+perl Makefile.PL INSTALLDIRS=vendor NO_PACKLIST=1
 make %{?_smp_mflags}
 
 %install
 make install DESTDIR=%{buildroot}
-rm %{buildroot}%{perl_vendorlib}/x86_64-linux/auto/YAML/.packlist
 find %{buildroot} -name 'perllocal.pod' -delete
 
 %check
-make test
+export PERL_MM_USE_DEFAULT=1
+cpan Test::YAML
+make %{?_smp_mflags} test
 
 %files
 %dir %{perl_vendorlib}/YAML/
@@ -81,6 +83,14 @@ make test
 %{_mandir}/man3/YAML::Types.3*
 
 %changelog
+*       Wed Oct 05 2016 ChangLee <changlee@vmware.com> 1.15-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.15-2
+-	GA - Bump release of all rpms
+*   Tue Feb 23 2016 Harish Udaiya Kumar <hudaiyakumar@vmware.com> 1.15-1
+-   Updated to version 1.15
+*	Mon Feb 01 2016 Anish Swaminathan <anishs@vmware.com> 1.14-2
+-	Fix for multithreaded perl
 *	Fri Apr 3 2015 Divya Thaluru <dthaluru@vmware.com> 1.14-1
 -	Initial version.
 

@@ -1,0 +1,16 @@
+{
+    "packages":["filesystem",  
+                "bash",
+                "shadow", 
+                "net-tools",
+                "util-linux",
+                "linux-esx",
+                "dbus",
+                "photon-release", 
+                "photon-repos",
+                "tdnf",
+
+                "rpm"]
+}
+
+

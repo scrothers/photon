@@ -1,7 +1,7 @@
 
 %global goroot          /usr/lib/golang
 %global gopath          %{_datadir}/gocode
-%global gohostarch  amd64
+%global gohostarch      amd64
 
 # rpmbuild magic to keep from having meta dependency on libc.so.6
 %define _use_internal_dependency_generator 0
@@ -9,38 +9,47 @@
 
 Summary:	Go 
 Name:		go
-Version:	1.3.3
-Release:	1
+Version:	1.6.3
+Release:	2%{?dist}
 License:	BSD
 URL:		https://golang/org
 Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	https://storage.googleapis.com/golang/%{name}%{version}.src.tar.gz
+%define sha1 go=b487b9127afba37e6c62305165bf840758d6adaf
+Patch0:     go_imports_fix.patch
 BuildRequires:	mercurial
 Requires:	mercurial
-# We strip meta dependency, but go requires glibc.
 Requires:	glibc
+
 %description
 Go is an open source programming language that makes it easy to build simple, reliable, and efficient software.  
 
 %prep
 %setup -qn %{name}
+%patch0 -p1
+
 %build
-export GOROOT_FINAL=%{goroot}
 export GOHOSTOS=linux
 export GOHOSTARCH=%{gohostarch}
+export GOROOT_BOOTSTRAP=%{goroot}
+
+export GOROOT="`pwd`"
+export GOPATH=%{gopath}
+export GOROOT_FINAL=%{_bindir}/go
+rm -f  %{gopath}/src/runtime/*.c 
 pushd src
 ./make.bash --no-clean
 popd
+
 %install
 rm -rf %{buildroot}
 
 mkdir -p %{buildroot}%{_bindir}
 mkdir -p %{buildroot}%{goroot}
 
-cp -apv api bin doc favicon.ico include lib pkg robots.txt src misc VERSION \
-   %{buildroot}%{goroot}
+cp -R api bin doc favicon.ico lib pkg robots.txt src misc VERSION %{buildroot}%{goroot}
 
 # remove the unnecessary zoneinfo file (Go will always use the system one first)
 rm -rfv %{buildroot}%{goroot}/lib/time
@@ -76,28 +85,48 @@ chown -R root:root %{buildroot}/etc/profile.d/go-exports.sh
 
 
 %{_fixperms} %{buildroot}/*
-%check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
-%post	-p /sbin/ldconfig
-%postun	-p /sbin/ldconfig
-rm /etc/profile.d/go-exports.sh
-rm -rf /opt/%{name}
-exit 0
+
+%post -p /sbin/ldconfig
+
+%postun
+/sbin/ldconfig
+if [ $1 -eq 0 ]; then
+  #This is uninstall
+  rm /etc/profile.d/go-exports.sh
+  rm -rf /opt/%{name}
+  exit 0
+fi
+
 %clean
 rm -rf %{buildroot}/*
+
 %files
 %defattr(-,root,root)
 %exclude %{goroot}/src/*.rc
 %exclude %{goroot}/include/plan9
 /etc/profile.d/go-exports.sh
 %{goroot}/*
-%dir %{gopath}
-%dir %{gopath}/src
-%dir %{gopath}/src/github.com/
-%dir %{gopath}/src/bitbucket.org/
-%dir %{gopath}/src/code.google.com/
-%dir %{gopath}/src/code.google.com/p/
+%{gopath}/src
+%exclude %{goroot}/src/pkg/debug/dwarf/testdata
+%exclude %{goroot}/src/pkg/debug/elf/testdata
 %{_bindir}/*
+
 %changelog
+*       Thu Oct 06 2016 ChangLee <changlee@vmware.com> 1.6.3-2
+-       Modified %check
+*	Wed Jul 27 2016 Anish Swaminathan <anishs@vmware.com> 1.6.3-1
+-	Update Golang to version 1.6.3 - fixes CVE 2016-5386
+*	Fri Jul 8 2016 Harish Udaiya Kumar <hudaiyakumar@vmware.com> 1.6.2-1
+-	Updated the Golang to version 1.6.2
+*	Thu Jun 2 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.4.2-5
+-	Fix script syntax 
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.4.2-4
+-	GA - Bump release of all rpms
+*       Thu May 05 2016 Kumar Kaushik <kaushikk@vmware.com> 1.4.2-3
+-       Handling upgrade scenario pre/post/un scripts.
+*	Wed Dec 09 2015 Anish Swaminathan <anishs@vmware.com> 1.4.2-2
+-	Edit post script.
+*	Mon Aug 03 2015 Vinay Kulkarni <kulkarniv@vmware.com> 1.4.2-1
+-	Update to golang release version 1.4.2
 *	Fri Oct 17 2014 Divya Thaluru <dthaluru@vmware.com> 1.3.3-1
 -	Initial build.	First version

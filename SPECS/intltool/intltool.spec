@@ -1,10 +1,11 @@
-Summary:	Intltool-0.50.2 
+Summary:	Intltool 
 Name:		intltool
-Version:	0.50.2
-Release:	1
+Version:	0.51.0
+Release:	2%{?dist}
 License:	GPLv2+
-URL:		http://freedesktop.org/wiki/Software/%{name}l/
-Source0:	http://launchpad.net/intltool/trunk/0.50.2/+download/%{name}-%{version}.tar.gz
+URL:		https://freedesktop.org/wiki/Software/intltool/
+Source0:	https://launchpad.net/intltool/+download/%{name}-%{version}.tar.gz
+%define sha1 intltool=a0c3bcb99d1bcfc5db70f8d848232a47c47da090
 Group:		Development/Tools
 Vendor:		VMware, Inc.
 Distribution:	Photon
@@ -20,8 +21,10 @@ make %{?_smp_mflags}
 %install
 make DESTDIR=%{buildroot} install
 install -v -Dm644 doc/I18N-HOWTO %{buildroot}/%{_docdir}/%{name}-%{version}/I18N-HOWTO
+
 %check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
+make %{?_smp_mflags} check
+
 %files
 %defattr(-,root,root)
 %{_docdir}/%{name}-%{version}/I18N-HOWTO
@@ -30,5 +33,9 @@ make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
 %{_datadir}/intltool/*
 %{_mandir}/man8/*
 %changelog
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.51.0-2
+-	GA - Bump release of all rpms
+* 	Thu Feb 25 2016 Anish Swaminathan <anishs@vmware.com>  0.51.0-1
+- 	Upgrade to 0.51.0
 *	Thu Oct 23 2014 Divya Thaluru <dthaluru@vmware.com> 0.50.2-1
 -	Initial version

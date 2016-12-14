@@ -1,14 +1,15 @@
-Summary:	gptfdisk-0.8.10
+Summary:	gptfdisk-1.0.1
 Name:		gptfdisk
-Version:	0.8.10 
-Release:	1
+Version:	1.0.1
+Release:	3%{?dist}
 License:	GPLv2+
 URL:		http://sourceforge.net/projects/gptfdisk/
 Group:		System Environment/Filesystem and Disk management
 Vendor:		VMware, Inc.
 Distribution: Photon
-Source0:	http://downloads.sourceforge.net/project/gptfdisk/gptfdisk/0.8.10/gptfdisk-0.8.10.tar.gz
-Patch0:		http://www.linuxfromscratch.org/patches/blfs/systemd/gptfdisk-0.8.10-convenience-1.patch
+Source0:	http://downloads.sourceforge.net/project/gptfdisk/gptfdisk/1.0.1/gptfdisk-1.0.1.tar.gz
+%define sha1 gptfdisk=ad28c511c642235815b83fffddf728c117057cba
+Patch0:	        gptfdisk-1.0.1-convenience-1.patch	
 Requires: 	popt >= 1.16
 BuildRequires:	popt-devel
 BuildRequires:	ncurses-devel
@@ -28,8 +29,6 @@ make %{?_smp_mflags} POPT=1
 [ %{buildroot} != "/"] && rm -rf %{buildroot}/*
 make DESTDIR=%{buildroot} install POPT=1
 %{_fixperms} %{buildroot}/*
-%check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
 %post	-p /sbin/ldconfig
 %postun	-p /sbin/ldconfig
 %clean
@@ -39,5 +38,11 @@ rm -rf %{buildroot}/*
 /sbin/*
 %{_mandir}/man8/*
 %changelog
+*       Wed Oct 05 2016 ChangLee <changlee@vmware.com> 1.0.1-3
+-       Modified %check
+*	Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.1-2
+-	GA - Bump release of all rpms
+*       Fri Feb 26 2016 Kumar Kaushik <kaushikk@vmware.com> 1.0.1-1
+-       Updated Version.
 *	Thu Oct 30 2014 Divya Thaluru <dthaluru@vmware.com> 0.8.10-1
 -	Initial build.	First version

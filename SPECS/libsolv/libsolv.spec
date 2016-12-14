@@ -1,17 +1,17 @@
-Summary:	Libsolv-0.6.6
+Summary:	Libsolv-0.6.19
 Name:		libsolv
-Version:	0.6.6
-Release:	1
+Version:	0.6.19
+Release:	3%{?dist}
 License:	BSD
-URL:		http://www.cmake.org/
+URL:		https://github.com/openSUSE/libsolv
 Source0:	https://github.com/openSUSE/libsolv/archive/%{name}-%{version}.tar.gz
-Group:		GeneralUtilities
+%define sha1 libsolv=2066529e5a95aac15a79863bb937bb159b05cffa
+Group:		Development/Tools
 Vendor:		VMware, Inc.
 Distribution:	Photon
-Requires:	db
-Requires:	rpm
+Requires:	libdb
 Requires:	expat
-BuildRequires:	db
+BuildRequires:	libdb-devel
 BuildRequires:	cmake
 BuildRequires:	rpm-devel
 BuildRequires:	expat
@@ -28,8 +28,10 @@ make %{?_smp_mflags}
 %install
 make DESTDIR=%{buildroot} install
 find %{buildroot} -name '*.la' -delete
+
 %check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
+make %{?_smp_mflags} test
+
 %files
 %defattr(-,root,root)
 %{_bindir}/*
@@ -37,5 +39,17 @@ make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
 /usr/share/*
 %{_includedir}/*
 %changelog
-*	Tue Nov 25 2014 Divya Thaluru <dthaluru@vmware.com> 0.6.6-1
--	Initial build. First version
+*   Thu Oct 27 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.6.19-3
+-   use libdb
+*   Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.6.19-2
+-   GA - Bump release of all rpms
+*   Tue Feb 23 2016 Anish Swaminathan <anishs@vmware.com>  0.6.19-1
+-   Upgrade to 0.6.19
+*   Fri Jan 22 2016 Xiaolin Li <xiaolinl@vmware.com> 0.6.17-1
+-   Updated to version 0.6.17
+*   Tue Sep 22 2015 Harish Udaiya Kumar <hudaiyakumar@vmware.com> 0.6.6-3
+-   Updated build-requires after creating devel package for db. 
+*   Wed May 20 2015 Touseef Liaqat <tliaqat@vmware.com> 0.6.6-2
+-   Updated group.
+*   Tue Nov 25 2014 Divya Thaluru <dthaluru@vmware.com> 0.6.6-1
+-   Initial build. First version

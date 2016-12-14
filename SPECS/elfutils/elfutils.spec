@@ -1,18 +1,22 @@
 # -*- rpm-spec-*-
 Summary:	A collection of utilities and DSOs to handle compiled objects
 Name:		elfutils
-Version:	0.158
-Release:	1
+Version:	0.165
+Release:	3%{?dist}
 License:	GPLv3+ and (GPLv2+ or LGPLv3+)
 Group:		Development/Tools
+URL:        	https://fedorahosted.org/elfutils/
 Source0:	elfutils-%{version}.tar.bz2
+%define sha1 elfutils=b994f2f31e6638415d7f8a3c0c7e04e6bc4ca4a9
 Vendor:		VMware, Inc.
 Distribution:	Photon
+
+Patch0: cve-2014-0172.patch
+
 Obsoletes:	libelf libelf-devel
 Requires:	elfutils-libelf = %{version}-%{release}
 Requires:	glibc >= 2.7
 Requires:	bzip2
-
 # ExcludeArch: xxx
 
 BuildRequires:	gcc >= 4.1.2-33
@@ -94,12 +98,19 @@ Conflicts: libelf-devel
 The elfutils-libelf-static package contains the static archive
 for libelf.
 
+%package libelf-lang
+Summary: Additional language files for elfutils
+Group: Development/Tools
+Requires: %{name}-libelf = %{version}-%{release}
+%description libelf-lang
+These are the additional language files of elfutils.
+
 %prep
 %setup -q
-
+%patch0 -p1
 %build
 %configure --program-prefix=%{_programprefix}
-make
+make %{?_smp_mflags}
 
 %install
 rm -rf ${RPM_BUILD_ROOT}
@@ -107,19 +118,22 @@ mkdir -p ${RPM_BUILD_ROOT}%{_prefix}
 
 %makeinstall
 
-chmod +x ${RPM_BUILD_ROOT}%{_prefix}/%{_lib}/lib*.so*
-chmod +x ${RPM_BUILD_ROOT}%{_prefix}/%{_lib}/elfutils/lib*.so*
+chmod +x ${RPM_BUILD_ROOT}/usr/lib/lib*.so*
+chmod +x ${RPM_BUILD_ROOT}/usr/lib/elfutils/lib*.so*
 
 # XXX Nuke unpackaged files
-{ cd ${RPM_BUILD_ROOT}
+{ pushd ${RPM_BUILD_ROOT}
   rm -f .%{_bindir}/eu-ld
   rm -f .%{_includedir}/elfutils/libasm.h
   rm -f .%{_libdir}/libasm.so
   rm -f .%{_libdir}/libasm.a
+  popd
 }
 
+%find_lang %{name}
+
 %check
-make check
+make %{?_smp_mflags} check
 
 %clean
 rm -rf ${RPM_BUILD_ROOT}
@@ -153,9 +167,12 @@ rm -rf ${RPM_BUILD_ROOT}
 %{_includedir}/elfutils/libebl.h
 %{_includedir}/elfutils/libdw.h
 %{_includedir}/elfutils/libdwfl.h
+%{_includedir}/elfutils/known-dwarf.h
+%{_includedir}/elfutils/libdwelf.h
 %{_libdir}/libebl.a
 #%{_libdir}/libasm.so
 %{_libdir}/libdw.so
+%{_libdir}/pkgconfig/*.pc
 
 %files devel-static
 %{_libdir}/libdw.a
@@ -165,7 +182,6 @@ rm -rf ${RPM_BUILD_ROOT}
 %defattr(-,root,root)
 %{_libdir}/libelf-%{version}.so
 %{_libdir}/libelf.so.*
-%{_datadir}/locale/*/LC_MESSAGES/elfutils.mo
 
 %files libelf-devel
 %defattr(-,root,root)
@@ -178,7 +194,22 @@ rm -rf ${RPM_BUILD_ROOT}
 %files libelf-devel-static
 %{_libdir}/libelf.a
 
+%files libelf-lang -f %{name}.lang
+%defattr(-,root,root)
+
 %changelog
+* Wed Nov 23 2016 Alexey Makhalov <amakhalov@vmware.com> 0.165-3
+- Added -libelf-lang subpackage
+* Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 0.165-2
+- GA - Bump release of all rpms
+* Thu Jan 14 2016 Xiaolin Li <xiaolinl@vmware.com> 0.165-1
+- Updated to version 0.165
+* Tue Nov 10 2015 Xiaolin Li <xiaolinl@vmware.com> 0.158-4
+- Handled locale files with macro find_lang
+* Sat Aug 15 2015 Sharath George <sharathg@vmware.com> 0.158-3
+- Add in patch for CVE-2014-0172
+* Mon May 18 2015 Touseef Liaqat <tliaqat@vmware.com> 0.158-2
+- Update according to UsrMove.
 * Fri Jan  3 2014 Mark Wielaard <mjw@redhat.com> 0.158-1
 - libdwfl: dwfl_core_file_report has new parameter executable.
   New functions dwfl_module_getsymtab_first_global,

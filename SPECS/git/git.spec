@@ -1,13 +1,14 @@
 Summary:	Fast distributed version control system
 Name:		git
-Version:	2.1.2
-Release:	1
+Version:	2.8.1
+Release:	6%{?dist}
 License:	GPLv2
 URL:		http://git-scm.com/
 Group:		System Environment/Programming
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	https://www.kernel.org/pub/software/scm/git/%{name}-%{version}.tar.xz
+%define sha1 git=fc97f987bbdc9dc302a525047bf8a014f6574f92
 BuildRequires:  curl
 BuildRequires:	python2
 BuildRequires:	python2-libs
@@ -18,6 +19,7 @@ Requires:	curl
 Requires:	expat
 Requires:	perl-YAML
 Requires:	perl-DBI
+Requires:       perl-CGI
 
 %description
 Git is a free and open source, distributed version control system 
@@ -51,14 +53,21 @@ make %{?_smp_mflags} CFLAGS="%{optflags}" CXXFLAGS="%{optflags}"
 %install
 [ %{buildroot} != "/"] && rm -rf %{buildroot}/*
 make DESTDIR=%{buildroot} install
+install -vdm 755 %{buildroot}/usr/share/bash-completion/completions
+install -m 0644 contrib/completion/git-completion.bash %{buildroot}/usr/share/bash-completion/completions/git
 %find_lang %{name}
 %{_fixperms} %{buildroot}/*
+
 %check
-make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck}
+make %{?_smp_mflags} test
 
 %post
-git config --system http.sslCAPath /etc/ssl/certs
-exit 0
+if [ $1 -eq 1 ];then
+    # This is first installation.
+    git config --system http.sslCAPath /etc/ssl/certs
+    exit 0
+fi
+
 %clean
 rm -rf %{buildroot}/*
 %files
@@ -71,15 +80,33 @@ rm -rf %{buildroot}/*
 %{_datarootdir}/git-gui/*
 %{_datarootdir}/gitk/*
 %{_datarootdir}/gitweb/*
+%{_datarootdir}/bash-completion/
 #excluding git svn files
 %exclude %{_libexecdir}/git-core/*svn*
 %exclude %{_mandir}/man3/*:SVN:*
 %exclude %{perl_sitelib}/Git/SVN
 %exclude %{perl_sitelib}/Git/SVN.pm
+%exclude /usr/lib/perl5/5.22.1/x86_64-linux-thread-multi/perllocal.pod
 
 %files lang -f %{name}.lang
 %defattr(-,root,root)
 
 %changelog
-*	Fri Apr 3 2015 Divya Thaluru <dthaluru@vmware.com> 2.1.2-1
--	Initial build.	First version
+*   Fri Aug 19 2016 Alexey Makhalov <amakhalov@vmware.com> 2.8.1-6
+-   Add bash completion file
+*   Thu May 26 2016 Harish Udaiya Kumar <hudaiyakumar@vmware.com> 2.8.1-5
+-   Excluded the perllocal.pod log.
+*   Tue May 24 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 2.8.1-4
+-   GA - Bump release of all rpms
+*   Wed May 18 2016 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 2.8.1-3
+-   Fix if syntax
+*   Thu May 05 2016 Kumar Kaushik <kaushikk@vmware.com> 2.8.1-2
+-   Handling the upgrade scenario.
+*   Fri Apr 15 2016 Anish Swaminathan <anishs@vmware.com> 2.8.1-1
+-   Updated to version 2.8.1
+*   Tue Feb 23 2016 Harish Udaiya Kumar <hudaiyakumar@vmware.com> 2.7.1-1
+-   Updated to version 2.7.1
+*   Wed Jan 13 2016 Anish Swaminathan <anishs@vmware.com> 2.1.2-2
+-   Add requires for perl-CGI.
+*   Fri Apr 3 2015 Divya Thaluru <dthaluru@vmware.com> 2.1.2-1
+-   Initial build. First version

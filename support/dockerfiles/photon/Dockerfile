@@ -1,13 +1,9 @@
 #
-# Photon Linux Dockerfile
+# Ubuntu-Dev Dockerfile for building Linux Distribution.
 #
 
-FROM scratch
-MAINTAINER tliaqat@vmware.com
+FROM vmware/photon:latest
 
-ADD rootfs.tar.bz2 /
+WORKDIR /workspace
 
-VOLUME /var/lib/docker
-
-CMD ["bash", "--login"]
-
+CMD ["bash"]
